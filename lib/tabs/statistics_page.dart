@@ -2676,7 +2676,7 @@ class _StatisticsPageState extends State<StatisticsPage>
         'yyyy-MM-dd',
       ).format(currentDate);
       tableData.add([
-        DateFormat('yy/MM/dd').format(currentDate),
+        DateFormat('MM/dd').format(currentDate),
         formatRoomData(roomData['1']![formattedCurrentDate]!),
         formatRoomData(roomData['2']![formattedCurrentDate]!),
         formatRoomData(roomData['3']![formattedCurrentDate]!),
@@ -3141,6 +3141,113 @@ class _StatisticsPageState extends State<StatisticsPage>
     return conditions.join('\n');
   }
 
+  void _showDoctorSelectionDialog(BuildContext context, List<String> doctors) {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return Dialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Container(
+            width: MediaQuery.of(context).size.width * 0.8,
+            padding: const EdgeInsets.all(16.0),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(20),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black26,
+                  blurRadius: 10,
+                  offset: Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '의사 선택',
+                  style: TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold,
+                    color: oceanBlue,
+                  ),
+                ),
+                SizedBox(height: 20),
+                Container(
+                  height: 300,
+                  child: ListView.builder(
+                    shrinkWrap: true,
+                    itemCount: doctors.length,
+                    itemBuilder: (context, index) {
+                      // Skip the placeholder "의사" option
+                      if (doctors[index] == '의사') return SizedBox.shrink();
+
+                      return ListTile(
+                        title: Text(
+                          doctors[index],
+                          style: TextStyle(fontSize: 18, color: Colors.black87),
+                        ),
+                        trailing: Icon(
+                          Icons.arrow_forward_ios,
+                          color: oceanBlue,
+                          size: 16,
+                        ),
+                        onTap: () async {
+                          Navigator.of(context).pop();
+
+                          // Set the selected doctor and query patients
+                          setState(() {
+                            selectedDoctor = doctors[index];
+                          });
+
+                          if (startDate != null && endDate != null) {
+                            setState(() {
+                              isLoading = true;
+                            });
+
+                            setState(() {
+                              isLoading = false;
+                            });
+
+                            _queryPatients();
+                          }
+                        },
+                      );
+                    },
+                  ),
+                ),
+                SizedBox(height: 16),
+                Align(
+                  alignment: Alignment.center,
+                  child: ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: oceanBlue,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(30),
+                      ),
+                      padding: EdgeInsets.symmetric(
+                        horizontal: 32,
+                        vertical: 16,
+                      ),
+                    ),
+                    onPressed: () => Navigator.of(context).pop(),
+                    child: Text(
+                      '취소',
+                      style: TextStyle(fontSize: 16, color: Colors.white),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     super.build(context);
@@ -3181,85 +3288,70 @@ class _StatisticsPageState extends State<StatisticsPage>
                           ),
                         ],
                       ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            startDate == null || endDate == null
-                                ? '날짜를 선택해주세요'
-                                : '${DateFormat('yyyy-MM-dd').format(startDate!)} ~ ${DateFormat('yyyy-MM-dd').format(endDate!)}',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                              color: oceanBlue,
-                            ),
-                          ),
-                          SizedBox(height: 8),
-                          ElevatedButton.icon(
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: oceanBlue,
-                              foregroundColor: Colors.white,
-                              minimumSize: Size(double.infinity, 50),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(8),
+                      child: InkWell(
+                        onTap: () => _selectDateRange(context),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              startDate == null || endDate == null
+                                  ? '날짜를 선택해주세요'
+                                  : '${DateFormat('yyyy-MM-dd').format(startDate!)} ~ ${DateFormat('yyyy-MM-dd').format(endDate!)}',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                                color: oceanBlue,
                               ),
                             ),
-                            onPressed: () => _selectDateRange(context),
-                            icon: Icon(Icons.date_range),
-                            label: Text('날짜 범위 변경'),
-                          ),
-                        ],
+                            Icon(Icons.calendar_today, color: oceanBlue),
+                          ],
+                        ),
                       ),
                     ),
                     SizedBox(height: 16),
                     Divider(),
                     Row(
                       children: [
-                        Text('의사별 통계', style: TextStyle(fontSize: 18)),
-                        Spacer(),
-                        Container(
-                          padding: EdgeInsets.symmetric(horizontal: 8),
-                          decoration: BoxDecoration(
-                            color: sandyBeige,
-                            border: Border.all(color: oceanBlue),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: DropdownButtonHideUnderline(
-                            child: DropdownButton<String>(
-                              value: selectedDoctor,
-                              onChanged: (String? newValue) {
-                                setState(() {
-                                  selectedDoctor = newValue!;
-                                  isConfirmButtonEnabled =
-                                      selectedDoctor != '의사';
-                                });
-                              },
-                              items:
-                                  doctors.map<DropdownMenuItem<String>>((
-                                    String value,
-                                  ) {
-                                    return DropdownMenuItem<String>(
-                                      value: value,
-                                      child: Text(
-                                        value,
-                                        style: TextStyle(color: oceanBlue),
-                                      ),
-                                    );
-                                  }).toList(),
-                              style: TextStyle(color: oceanBlue),
-                              icon: Icon(
-                                Icons.arrow_drop_down,
-                                color: oceanBlue,
+                        Expanded(
+                          child: ElevatedButton(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Color(
+                                0xFF0077B6,
+                              ), // Darker blue for "의사별 통계"
+                              foregroundColor: Colors.white,
+                              minimumSize: Size(double.infinity, 50),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
                               ),
+                            ),
+                            onPressed: () {
+                              _showDoctorSelectionDialog(context, doctors);
+                            },
+                            child: Text(
+                              '의사별 통계',
+                              style: TextStyle(fontSize: 16),
                             ),
                           ),
                         ),
-                        SizedBox(width: 8),
-                        ElevatedButton(
-                          style: seafoamButtonStyle,
-                          onPressed:
-                              isConfirmButtonEnabled ? _queryPatients : null,
-                          child: Text('확인'),
+                        SizedBox(width: 16), // Add space between the buttons
+                        Expanded(
+                          child: ElevatedButton(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Color(
+                                0xFF0096C7,
+                              ), // Medium blue for "검사 요약"
+                              foregroundColor: Colors.white,
+                              minimumSize: Size(double.infinity, 50),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                            ),
+                            onPressed: _querySummaryPatients,
+                            child: Text(
+                              '검사 요약',
+                              style: TextStyle(fontSize: 16),
+                            ),
+                          ),
                         ),
                       ],
                     ),
@@ -3267,26 +3359,43 @@ class _StatisticsPageState extends State<StatisticsPage>
                     Row(
                       children: [
                         Expanded(
-                          child: Text('검사 요약', style: TextStyle(fontSize: 18)),
+                          child: ElevatedButton(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Color(
+                                0xFF00B4D8,
+                              ), // Lighter blue for "방별 요약"
+                              foregroundColor: Colors.white,
+                              minimumSize: Size(double.infinity, 50),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                            ),
+                            onPressed: _queryRoomSummary,
+                            child: Text(
+                              '방별 요약',
+                              style: TextStyle(fontSize: 16),
+                            ),
+                          ),
                         ),
-                        Spacer(),
-                        ElevatedButton(
-                          style: seafoamButtonStyle,
-                          onPressed: _querySummaryPatients,
-                          child: Text('확인'),
-                        ),
-                      ],
-                    ),
-                    SizedBox(height: 16),
-                    Row(
-                      children: [
+                        SizedBox(width: 16), // Add space between the buttons
                         Expanded(
-                          child: Text('방별 요약', style: TextStyle(fontSize: 18)),
-                        ),
-                        ElevatedButton(
-                          style: seafoamButtonStyle,
-                          onPressed: _queryRoomSummary,
-                          child: Text('확인'),
+                          child: ElevatedButton(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Color(
+                                0xFF48CAE4,
+                              ), // Lightest blue for "년도 비교"
+                              foregroundColor: Colors.white,
+                              minimumSize: Size(double.infinity, 50),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                            ),
+                            onPressed: () {}, // Define this function
+                            child: Text(
+                              '년도 비교',
+                              style: TextStyle(fontSize: 16),
+                            ),
+                          ),
                         ),
                       ],
                     ),
@@ -3305,7 +3414,7 @@ class _StatisticsPageState extends State<StatisticsPage>
                           flex: 4,
                           child: ElevatedButton.icon(
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: coralOrange,
+                              backgroundColor: Color(0xFF8B1E3F), // 깊은 버건디
                               foregroundColor: Colors.white,
                               padding: EdgeInsets.symmetric(vertical: 12),
                               shape: RoundedRectangleBorder(
@@ -3320,12 +3429,12 @@ class _StatisticsPageState extends State<StatisticsPage>
                             onPressed: _createWashingMachineAndScopesExcelFile,
                           ),
                         ),
-                        SizedBox(width: 8), // 버튼 사이의 간격
+                        SizedBox(width: 8),
                         Expanded(
                           flex: 4,
                           child: ElevatedButton.icon(
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.redAccent,
+                              backgroundColor: Color(0xFFA63A50), // 진한 로즈
                               foregroundColor: Colors.white,
                               padding: EdgeInsets.symmetric(vertical: 12),
                               shape: RoundedRectangleBorder(
@@ -3349,7 +3458,7 @@ class _StatisticsPageState extends State<StatisticsPage>
                           flex: 3,
                           child: ElevatedButton.icon(
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: turquoiseBlue,
+                              backgroundColor: Color(0xFFB85C6D), // 중간 로즈
                               foregroundColor: Colors.white,
                               padding: EdgeInsets.symmetric(vertical: 12),
                               shape: RoundedRectangleBorder(
@@ -3364,13 +3473,12 @@ class _StatisticsPageState extends State<StatisticsPage>
                             onPressed: _createExamSummaryExcel,
                           ),
                         ),
-                        SizedBox(width: 8), // 버튼 사이의 간격
+                        SizedBox(width: 8),
                         Expanded(
                           flex: 3,
                           child: ElevatedButton.icon(
                             style: ElevatedButton.styleFrom(
-                              backgroundColor:
-                                  lavenderPurple, // 새 버튼의 색상을 다르게 설정
+                              backgroundColor: Color(0xFFC27C88), // 연한 로즈
                               foregroundColor: Colors.white,
                               padding: EdgeInsets.symmetric(vertical: 12),
                               shape: RoundedRectangleBorder(
