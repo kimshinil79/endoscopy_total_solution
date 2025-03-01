@@ -10,8 +10,8 @@ import 'dart:io';
 import '../provider/patient_provider.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_email_sender/flutter_email_sender.dart';
-
 import '../provider/settings_provider.dart';
+import 'package:fl_chart/fl_chart.dart';
 
 // 색상 팔레트 정의
 final Color oceanBlue = Color(0xFF1A5F7A);
@@ -2086,142 +2086,258 @@ class _StatisticsPageState extends State<StatisticsPage>
   }
 
   void _showResultsDialog(BuildContext context, List<Patient> patients) {
-    int gsfGumjin =
-        patients
-            .where((p) => p.GSF != null && p.GSF!.gumjinOrNot == '검진')
-            .length;
-    int gsfNonGumjin =
-        patients
-            .where((p) => p.GSF != null && p.GSF!.gumjinOrNot == '외래')
-            .length;
+    List<Patient> currentPatients = patients;
+    FirebaseFirestore.instance.collection('settings').doc('doctors').get().then((
+      docSnapshot,
+    ) {
+      if (docSnapshot.exists) {
+        Map<String, dynamic> doctorMap = docSnapshot.data()?['doctorMap'] ?? {};
+        List<String> doctorNames = doctorMap.keys.toList();
+        Set<String> combinedDoctors = Set<String>.from(doctors);
+        combinedDoctors.addAll(doctorNames);
+        combinedDoctors.remove('의사');
+        List<String> updatedDoctors = combinedDoctors.toList()..sort();
 
-    int csfGumjin =
-        patients
-            .where((p) => p.CSF != null && p.CSF!.gumjinOrNot == '검진')
-            .length;
-    int csfGumjinNoPolyp =
-        patients
-            .where(
-              (p) =>
-                  p.CSF != null &&
-                  p.CSF!.gumjinOrNot == '검진' &&
-                  p.CSF!.examDetail.polypectomy == '없음',
-            )
-            .length;
-    int csfGumjinWithPolyp = csfGumjin - csfGumjinNoPolyp;
+        String currentDoctor = selectedDoctor;
+        if (!updatedDoctors.contains(currentDoctor)) {
+          currentDoctor = updatedDoctors.isNotEmpty ? updatedDoctors[0] : '의사';
+        }
 
-    int csfNonGumjin =
-        patients
-            .where((p) => p.CSF != null && p.CSF!.gumjinOrNot == '외래')
-            .length;
-    int csfNonGumjinNoPolyp =
-        patients
-            .where(
-              (p) =>
-                  p.CSF != null &&
-                  p.CSF!.gumjinOrNot == '외래' &&
-                  p.CSF!.examDetail.polypectomy == '없음',
-            )
-            .length;
-    int csfNonGumjinWithPolyp = csfNonGumjin - csfNonGumjinNoPolyp;
+        // 변수들을 StatefulBuilder 외부에서 선언
+        Map<String, dynamic> stats = {};
 
-    int totalLowerEndoscopies = csfNonGumjin + csfGumjin;
-    int polypectomyCount =
-        patients
-            .where(
-              (p) => p.CSF != null && p.CSF!.examDetail.polypectomy != '없음',
-            )
-            .length;
-    double polypDetectionRate =
-        totalLowerEndoscopies > 0
-            ? (polypectomyCount / totalLowerEndoscopies) * 100
-            : 0;
-    int totalEndoscopies = gsfGumjin + gsfNonGumjin + totalLowerEndoscopies;
+        // 통계 계산 함수를 Future로 변경
+        Future<Map<String, dynamic>> calculateStats(String doctor) async {
+          currentPatients = await queryPatientsByDateAndDoctor(
+            startDate!,
+            endDate!,
+            doctor,
+          );
+          List<Patient> filteredPatients =
+              currentPatients.where((p) => p.doctor == doctor).toList();
 
-    String dateRangeText =
-        '${DateFormat('yy/MM/dd').format(startDate!)} ~ ${DateFormat('yy/MM/dd').format(endDate!)}';
+          int gsfGumjin =
+              filteredPatients
+                  .where((p) => p.GSF != null && p.GSF!.gumjinOrNot == '검진')
+                  .length;
+          int gsfNonGumjin =
+              filteredPatients
+                  .where((p) => p.GSF != null && p.GSF!.gumjinOrNot == '외래')
+                  .length;
 
-    showDialog(
-      context: context,
-      builder: (context) {
-        return Dialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
-          ),
-          child: Container(
-            width: MediaQuery.of(context).size.width * 0.9,
-            padding: const EdgeInsets.all(24.0),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  '의사별 통계',
-                  style: TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                    color: oceanBlue,
-                  ),
-                ),
-                SizedBox(height: 8),
-                Text(
-                  '$selectedDoctor',
-                  style: TextStyle(fontSize: 18, color: Colors.grey[600]),
-                ),
-                Text(
-                  dateRangeText,
-                  style: TextStyle(fontSize: 14, color: Colors.grey[600]),
-                ),
-                SizedBox(height: 24),
-                _buildStatisticItem(
-                  '위내시경',
-                  '검진: $gsfGumjin',
-                  '외래: $gsfNonGumjin',
-                ),
-                _buildStatisticItem(
-                  '대장내시경',
-                  '검진: $csfGumjin ($csfGumjinNoPolyp/$csfGumjinWithPolyp)',
-                  '외래: $csfNonGumjin ($csfNonGumjinNoPolyp/$csfNonGumjinWithPolyp)',
-                ),
-                _buildStatisticItem(
-                  '용종 발견율',
-                  '${polypDetectionRate.toStringAsFixed(2)}%',
-                  '',
-                  color: Colors.blue,
-                ),
-                _buildStatisticItem(
-                  '총 내시경 개수',
-                  totalEndoscopies.toString(),
-                  '',
-                  color: Colors.red,
-                ),
-                SizedBox(height: 24),
-                Align(
-                  alignment: Alignment.center,
-                  child: ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: oceanBlue,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(30),
-                      ),
-                      padding: EdgeInsets.symmetric(
-                        horizontal: 32,
-                        vertical: 16,
+          int csfGumjin =
+              filteredPatients
+                  .where((p) => p.CSF != null && p.CSF!.gumjinOrNot == '검진')
+                  .length;
+          int csfGumjinNoPolyp =
+              filteredPatients
+                  .where(
+                    (p) =>
+                        p.CSF != null &&
+                        p.CSF!.gumjinOrNot == '검진' &&
+                        p.CSF!.examDetail.polypectomy == '없음',
+                  )
+                  .length;
+          int csfGumjinWithPolyp = csfGumjin - csfGumjinNoPolyp;
+
+          int csfNonGumjin =
+              filteredPatients
+                  .where((p) => p.CSF != null && p.CSF!.gumjinOrNot == '외래')
+                  .length;
+          int csfNonGumjinNoPolyp =
+              filteredPatients
+                  .where(
+                    (p) =>
+                        p.CSF != null &&
+                        p.CSF!.gumjinOrNot == '외래' &&
+                        p.CSF!.examDetail.polypectomy == '없음',
+                  )
+                  .length;
+          int csfNonGumjinWithPolyp = csfNonGumjin - csfNonGumjinNoPolyp;
+
+          int totalLowerEndoscopies = csfNonGumjin + csfGumjin;
+          int polypectomyCount =
+              filteredPatients
+                  .where(
+                    (p) =>
+                        p.CSF != null && p.CSF!.examDetail.polypectomy != '없음',
+                  )
+                  .length;
+          double polypDetectionRate =
+              totalLowerEndoscopies > 0
+                  ? (polypectomyCount / totalLowerEndoscopies) * 100
+                  : 0;
+          int totalEndoscopies =
+              gsfGumjin + gsfNonGumjin + totalLowerEndoscopies;
+
+          return {
+            'gsfGumjin': gsfGumjin,
+            'gsfNonGumjin': gsfNonGumjin,
+            'csfGumjin': csfGumjin,
+            'csfGumjinNoPolyp': csfGumjinNoPolyp,
+            'csfGumjinWithPolyp': csfGumjinWithPolyp,
+            'csfNonGumjin': csfNonGumjin,
+            'csfNonGumjinNoPolyp': csfNonGumjinNoPolyp,
+            'csfNonGumjinWithPolyp': csfNonGumjinWithPolyp,
+            'totalLowerEndoscopies': totalLowerEndoscopies,
+            'polypectomyCount': polypectomyCount,
+            'polypDetectionRate': polypDetectionRate,
+            'totalEndoscopies': totalEndoscopies,
+          };
+        }
+
+        // 초기 통계 계산
+        calculateStats(currentDoctor).then((initialStats) {
+          stats = initialStats;
+
+          showDialog(
+            context: context,
+            builder: (context) {
+              return StatefulBuilder(
+                builder: (context, setState) {
+                  String dateRangeText =
+                      '${DateFormat('yy/MM/dd').format(startDate!)} ~ ${DateFormat('yy/MM/dd').format(endDate!)}';
+
+                  return Dialog(
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Container(
+                      width: MediaQuery.of(context).size.width * 0.9,
+                      padding: const EdgeInsets.all(24.0),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            '의사별 통계',
+                            style: TextStyle(
+                              fontSize: 24,
+                              fontWeight: FontWeight.bold,
+                              color: oceanBlue,
+                            ),
+                          ),
+                          SizedBox(height: 8),
+                          Container(
+                            padding: EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(color: oceanBlue),
+                            ),
+                            child: DropdownButton<String>(
+                              value: currentDoctor,
+                              isExpanded: true,
+                              underline: SizedBox(),
+                              icon: Icon(
+                                Icons.arrow_drop_down,
+                                color: oceanBlue,
+                              ),
+                              items:
+                                  updatedDoctors.map((String doctor) {
+                                    return DropdownMenuItem<String>(
+                                      value: doctor,
+                                      child: Text(doctor),
+                                    );
+                                  }).toList(),
+                              onChanged: (String? newValue) async {
+                                if (newValue != null) {
+                                  // 새로운 의사에 대한 통계 계산
+                                  Map<String, dynamic> newStats =
+                                      await calculateStats(newValue);
+                                  setState(() {
+                                    currentDoctor = newValue;
+                                    stats = newStats;
+                                  });
+                                }
+                              },
+                            ),
+                          ),
+                          Text(
+                            dateRangeText,
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: Colors.grey[600],
+                            ),
+                          ),
+                          SizedBox(height: 24),
+                          _buildStatisticItem(
+                            '위내시경',
+                            '검진: ${stats['gsfGumjin']}',
+                            '외래: ${stats['gsfNonGumjin']}',
+                          ),
+                          _buildStatisticItem(
+                            '대장내시경',
+                            '검진: ${stats['csfGumjin']} (${stats['csfGumjinNoPolyp']}/${stats['csfGumjinWithPolyp']})',
+                            '외래: ${stats['csfNonGumjin']} (${stats['csfNonGumjinNoPolyp']}/${stats['csfNonGumjinWithPolyp']})',
+                          ),
+                          _buildStatisticItem(
+                            '용종 발견율',
+                            '${stats['polypDetectionRate'].toStringAsFixed(2)}%',
+                            '',
+                            color: Colors.blue,
+                          ),
+                          _buildStatisticItem(
+                            '총 내시경 개수',
+                            stats['totalEndoscopies'].toString(),
+                            '',
+                            color: Colors.red,
+                          ),
+                          SizedBox(height: 24),
+                          Align(
+                            alignment: Alignment.center,
+                            child: ElevatedButton(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: oceanBlue,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(30),
+                                ),
+                                padding: EdgeInsets.symmetric(
+                                  horizontal: 32,
+                                  vertical: 16,
+                                ),
+                              ),
+                              onPressed: () => Navigator.of(context).pop(),
+                              child: Text(
+                                '닫기',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                    onPressed: () => Navigator.of(context).pop(),
-                    child: Text(
-                      '닫기',
-                      style: TextStyle(fontSize: 16, color: Colors.white),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
+                  );
+                },
+              );
+            },
+          );
+        });
+      } else {
+        _showResultsDialogWithCurrentDoctors(context, patients);
+      }
+    });
+  }
+
+  void _showResultsDialogWithCurrentDoctors(
+    BuildContext context,
+    List<Patient> patients,
+  ) {
+    String currentDoctor = selectedDoctor;
+
+    // Ensure selected doctor is in the list
+    if (!doctors.contains(currentDoctor)) {
+      currentDoctor = doctors.isNotEmpty ? doctors[0] : '의사';
+    }
+
+    // Show dialog with existing doctors list
+    // (Insert similar dialog code as above but using doctors instead of updatedDoctors)
+    // ...
   }
 
   Widget _buildStatisticItem(
@@ -2531,6 +2647,228 @@ class _StatisticsPageState extends State<StatisticsPage>
         );
       },
     );
+  }
+
+  void _showYearComparisonDialog() async {
+    List<int> selectedYears = [];
+    String selectedType = '전체'; // '전체', '외래', '검진'
+
+    showDialog(
+      context: context,
+      builder:
+          (context) => StatefulBuilder(
+            builder: (context, setState) {
+              return Dialog(
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Container(
+                  width: MediaQuery.of(context).size.width * 0.9,
+                  padding: EdgeInsets.all(16),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        '년도별 통계 비교',
+                        style: TextStyle(
+                          fontSize: 24,
+                          fontWeight: FontWeight.bold,
+                          color: oceanBlue,
+                        ),
+                      ),
+                      SizedBox(height: 20),
+                      // 통계 유형 선택 버튼
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                        children: [
+                          _buildTypeButton('전체', selectedType, (val) {
+                            setState(() => selectedType = val);
+                          }),
+                          _buildTypeButton('외래', selectedType, (val) {
+                            setState(() => selectedType = val);
+                          }),
+                          _buildTypeButton('검진', selectedType, (val) {
+                            setState(() => selectedType = val);
+                          }),
+                        ],
+                      ),
+                      SizedBox(height: 20),
+                      // 년도 선택 리스트
+                      Container(
+                        height: 200,
+                        child: ListView.builder(
+                          shrinkWrap: true,
+                          itemCount: DateTime.now().year - 2022,
+                          itemBuilder: (context, index) {
+                            int year = DateTime.now().year - index;
+                            bool isSelected = selectedYears.contains(year);
+                            return CheckboxListTile(
+                              title: Text('$year년'),
+                              value: isSelected,
+                              onChanged: (bool? value) {
+                                setState(() {
+                                  if (value == true) {
+                                    selectedYears.add(year);
+                                  } else {
+                                    selectedYears.remove(year);
+                                  }
+                                });
+                              },
+                            );
+                          },
+                        ),
+                      ),
+                      SizedBox(height: 20),
+                      ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: oceanBlue,
+                          padding: EdgeInsets.symmetric(
+                            horizontal: 32,
+                            vertical: 16,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(30),
+                          ),
+                        ),
+                        onPressed:
+                            selectedYears.isEmpty
+                                ? null
+                                : () {
+                                  Navigator.of(context).pop();
+                                  _showYearComparisonChart(
+                                    selectedYears,
+                                    selectedType,
+                                  );
+                                },
+                        child: Text(
+                          '차트 보기',
+                          style: TextStyle(fontSize: 16, color: Colors.white),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+    );
+  }
+
+  Widget _buildTypeButton(
+    String type,
+    String selectedType,
+    Function(String) onSelect,
+  ) {
+    return ElevatedButton(
+      style: ElevatedButton.styleFrom(
+        backgroundColor: selectedType == type ? oceanBlue : Colors.grey[300],
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      ),
+      onPressed: () => onSelect(type),
+      child: Text(
+        type,
+        style: TextStyle(
+          color: selectedType == type ? Colors.white : Colors.black87,
+        ),
+      ),
+    );
+  }
+
+  void _showYearComparisonChart(List<int> years, String type) async {
+    try {
+      setState(() {
+        isLoading = true;
+      });
+
+      Map<int, Map<String, List<int>>> yearlyData = {};
+
+      // Fetch data for each selected year
+      for (int year in years) {
+        DocumentSnapshot doc =
+            await FirebaseFirestore.instance
+                .collection('statistics')
+                .doc(year.toString())
+                .get();
+
+        if (doc.exists) {
+          Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
+          yearlyData[year] = {};
+          yearlyData[year]!['외래'] = List<int>.filled(12, 0);
+          yearlyData[year]!['검진'] = List<int>.filled(12, 0);
+
+          data.forEach((month, stats) {
+            int monthIndex = int.parse(month) - 1;
+            yearlyData[year]!['외래']![monthIndex] = stats['외래'] ?? 0;
+            yearlyData[year]!['검진']![monthIndex] = stats['검진'] ?? 0;
+          });
+        }
+      }
+
+      setState(() {
+        isLoading = false;
+      });
+
+      // Show chart dialog
+      showDialog(
+        context: context,
+        builder:
+            (context) => Dialog(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Container(
+                width: MediaQuery.of(context).size.width * 0.95,
+                height: MediaQuery.of(context).size.height * 0.7,
+                padding: EdgeInsets.all(16),
+                child: Column(
+                  children: [
+                    Text(
+                      '년도별 통계 비교',
+                      style: TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                        color: oceanBlue,
+                      ),
+                    ),
+                    SizedBox(height: 20),
+                    Expanded(
+                      child: YearComparisonChart(
+                        yearlyData: yearlyData,
+                        selectedType: type,
+                      ),
+                    ),
+                    SizedBox(height: 16),
+                    ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: oceanBlue,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(30),
+                        ),
+                        padding: EdgeInsets.symmetric(
+                          horizontal: 32,
+                          vertical: 16,
+                        ),
+                      ),
+                      onPressed: () => Navigator.of(context).pop(),
+                      child: Text(
+                        '닫기',
+                        style: TextStyle(fontSize: 16, color: Colors.white),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+      );
+    } catch (e) {
+      print('Error fetching statistics: $e');
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('통계 데이터를 불러오는 중 오류가 발생했습니다.')));
+      setState(() {
+        isLoading = false;
+      });
+    }
   }
 
   Widget _buildSummaryTable(List<List<String>> data) {
@@ -3182,6 +3520,7 @@ class _StatisticsPageState extends State<StatisticsPage>
                     shrinkWrap: true,
                     itemCount: doctors.length,
                     itemBuilder: (context, index) {
+                      //print(doctors[index]);
                       // Skip the placeholder "의사" option
                       if (doctors[index] == '의사') return SizedBox.shrink();
 
@@ -3390,7 +3729,8 @@ class _StatisticsPageState extends State<StatisticsPage>
                                 borderRadius: BorderRadius.circular(8),
                               ),
                             ),
-                            onPressed: () {}, // Define this function
+                            onPressed:
+                                _showYearComparisonDialog, // Define this function
                             child: Text(
                               '년도 비교',
                               style: TextStyle(fontSize: 16),
@@ -3807,6 +4147,182 @@ class PatientListTile extends StatelessWidget {
           Text(text, style: TextStyle(fontSize: 14, color: Colors.black87)),
         ],
       ),
+    );
+  }
+}
+
+class YearComparisonChart extends StatelessWidget {
+  final Map<int, Map<String, List<int>>> yearlyData;
+  final String selectedType;
+
+  const YearComparisonChart({
+    Key? key,
+    required this.yearlyData,
+    required this.selectedType,
+  }) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return LineChart(
+      LineChartData(
+        gridData: FlGridData(show: true),
+        titlesData: FlTitlesData(
+          bottomTitles: AxisTitles(
+            sideTitles: SideTitles(
+              showTitles: true,
+              getTitlesWidget: (value, meta) {
+                return Text('${(value + 1).toInt()}월');
+              },
+              interval: 1,
+            ),
+          ),
+          leftTitles: AxisTitles(
+            sideTitles: SideTitles(
+              showTitles: true,
+              interval: 10,
+              reservedSize: 40,
+            ),
+          ),
+        ),
+        borderData: FlBorderData(show: true),
+        lineBarsData: _createLineBarsData(),
+      ),
+    );
+  }
+
+  List<LineChartBarData> _createLineBarsData() {
+    List<LineChartBarData> bars = [];
+    List<Color> colors = [
+      Colors.blue,
+      Colors.red,
+      Colors.green,
+      Colors.orange,
+      Colors.purple,
+    ];
+
+    int colorIndex = 0;
+    yearlyData.forEach((year, typeData) {
+      if (selectedType == '전체' || selectedType == '외래') {
+        bars.add(
+          _createLineChartBarData(
+            year,
+            typeData['외래']!,
+            colors[colorIndex % colors.length],
+            '외래',
+          ),
+        );
+      }
+      if (selectedType == '전체' || selectedType == '검진') {
+        bars.add(
+          _createLineChartBarData(
+            year,
+            typeData['검진']!,
+            colors[(colorIndex + 1) % colors.length],
+            '검진',
+          ),
+        );
+      }
+      colorIndex += 2;
+    });
+
+    return bars;
+  }
+
+  LineChartBarData _createLineChartBarData(
+    int year,
+    List<int> data,
+    Color color,
+    String type,
+  ) {
+    return LineChartBarData(
+      spots:
+          data.asMap().entries.map((entry) {
+            return FlSpot(entry.key.toDouble(), entry.value.toDouble());
+          }).toList(),
+      isCurved: true,
+      color: color,
+      barWidth: 2,
+      isStrokeCapRound: true,
+      dotData: FlDotData(show: true),
+      belowBarData: BarAreaData(show: false),
+    );
+  }
+}
+
+class YearlyComparisonChart extends StatelessWidget {
+  final List<BarChartGroupData> barGroups;
+
+  YearlyComparisonChart({required this.barGroups});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        BarChart(
+          BarChartData(
+            barGroups: barGroups,
+            titlesData: FlTitlesData(
+              bottomTitles: AxisTitles(
+                sideTitles: SideTitles(
+                  showTitles: true,
+                  getTitlesWidget: (value, meta) {
+                    // Customize your bottom titles here
+                    return Text('Year ${value.toInt()}');
+                  },
+                ),
+              ),
+            ),
+            barTouchData: BarTouchData(
+              touchTooltipData: BarTouchTooltipData(
+                tooltipPadding: const EdgeInsets.all(8),
+                tooltipMargin: 8,
+                getTooltipItem: (group, groupIndex, rod, rodIndex) {
+                  return BarTooltipItem(
+                    'Data: ${rod.toY.toString()}',
+                    TextStyle(color: Colors.white),
+                    children: [
+                      TextSpan(
+                        text: '\nAdditional Info',
+                        style: TextStyle(color: Colors.grey[200], fontSize: 12),
+                      ),
+                    ],
+                  );
+                },
+              ),
+            ),
+          ),
+        ),
+        SizedBox(height: 20),
+        // Legend
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            LegendItem(color: Colors.red, text: 'Data 1'),
+            SizedBox(width: 10),
+            LegendItem(color: Colors.green, text: 'Data 2'),
+            SizedBox(width: 10),
+            LegendItem(color: Colors.blue, text: 'Data 3'),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+class LegendItem extends StatelessWidget {
+  final Color color;
+  final String text;
+
+  LegendItem({required this.color, required this.text});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Container(width: 16, height: 16, color: color),
+        SizedBox(width: 4),
+        Text(text),
+      ],
     );
   }
 }
