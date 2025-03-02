@@ -2221,11 +2221,17 @@ class _StatisticsPageState extends State<StatisticsPage>
                           Container(
                             padding: EdgeInsets.symmetric(
                               horizontal: 12,
-                              vertical: 4,
+                              vertical: 6,
                             ),
                             decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(10),
-                              border: Border.all(color: oceanBlue),
+                              color: seafoamGreen.withAlpha(
+                                (0.1 * 255).round(),
+                              ),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(
+                                color: oceanBlue.withAlpha((0.3 * 255).round()),
+                                width: 1,
+                              ),
                             ),
                             child: DropdownButton<String>(
                               value: currentDoctor,
@@ -2255,14 +2261,18 @@ class _StatisticsPageState extends State<StatisticsPage>
                               },
                             ),
                           ),
-                          Text(
-                            dateRangeText,
-                            style: TextStyle(
-                              fontSize: 14,
-                              color: Colors.grey[600],
+                          SizedBox(height: 12),
+                          Align(
+                            alignment: Alignment.centerRight,
+                            child: Text(
+                              dateRangeText,
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: Colors.grey[600],
+                              ),
                             ),
                           ),
-                          SizedBox(height: 24),
+                          SizedBox(height: 12),
                           _buildStatisticItem(
                             '위내시경',
                             '검진: ${stats['gsfGumjin']}',
@@ -2652,6 +2662,7 @@ class _StatisticsPageState extends State<StatisticsPage>
   void _showYearComparisonDialog() async {
     List<int> selectedYears = [];
     String selectedType = '전체'; // '전체', '외래', '검진'
+    bool isCumulative = false; // 누적 표시 여부를 추적하는 새 변수
 
     showDialog(
       context: context,
@@ -2664,7 +2675,7 @@ class _StatisticsPageState extends State<StatisticsPage>
                 ),
                 child: Container(
                   width: MediaQuery.of(context).size.width * 0.9,
-                  padding: EdgeInsets.all(16),
+                  padding: EdgeInsets.all(24),
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
@@ -2676,74 +2687,184 @@ class _StatisticsPageState extends State<StatisticsPage>
                           color: oceanBlue,
                         ),
                       ),
-                      SizedBox(height: 20),
+                      SizedBox(height: 24),
                       // 통계 유형 선택 버튼
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                        children: [
-                          _buildTypeButton('전체', selectedType, (val) {
-                            setState(() => selectedType = val);
-                          }),
-                          _buildTypeButton('외래', selectedType, (val) {
-                            setState(() => selectedType = val);
-                          }),
-                          _buildTypeButton('검진', selectedType, (val) {
-                            setState(() => selectedType = val);
-                          }),
-                        ],
+                      Container(
+                        decoration: BoxDecoration(
+                          color: Colors.grey[100],
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        padding: EdgeInsets.all(8),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                          children: [
+                            _buildTypeButton('외래', selectedType, (val) {
+                              setState(() => selectedType = val);
+                            }),
+                            _buildTypeButton('검진', selectedType, (val) {
+                              setState(() => selectedType = val);
+                            }),
+                            _buildTypeButton('전체', selectedType, (val) {
+                              setState(() => selectedType = val);
+                            }),
+                          ],
+                        ),
                       ),
-                      SizedBox(height: 20),
-                      // 년도 선택 리스트
+                      SizedBox(height: 12),
+                      // 누적 버튼 추가 - 다른 스타일로 표시
+                      Container(
+                        width: double.infinity,
+                        child: ElevatedButton.icon(
+                          icon: Icon(
+                            isCumulative
+                                ? Icons.stacked_line_chart
+                                : Icons.show_chart,
+                            color:
+                                isCumulative ? Colors.white : Colors.grey[700],
+                          ),
+                          label: Text(
+                            '누적',
+                            style: TextStyle(
+                              color:
+                                  isCumulative
+                                      ? Colors.white
+                                      : Colors.grey[700],
+                              fontWeight:
+                                  isCumulative
+                                      ? FontWeight.bold
+                                      : FontWeight.normal,
+                            ),
+                          ),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor:
+                                isCumulative
+                                    ? Colors.amber[700]
+                                    : Colors.amber[100],
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              side: BorderSide(
+                                color: Colors.amber[700]!,
+                                width: 1,
+                              ),
+                            ),
+                            padding: EdgeInsets.symmetric(vertical: 12),
+                          ),
+                          onPressed: () {
+                            setState(() {
+                              isCumulative = !isCumulative;
+                            });
+                          },
+                        ),
+                      ),
+                      SizedBox(height: 24),
+                      Text(
+                        '비교할 년도 선택',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w500,
+                          color: Colors.grey[700],
+                        ),
+                      ),
+                      SizedBox(height: 16),
+                      // 년도 선택 그리드
                       Container(
                         height: 200,
-                        child: ListView.builder(
-                          shrinkWrap: true,
+                        child: GridView.builder(
+                          gridDelegate:
+                              SliverGridDelegateWithFixedCrossAxisCount(
+                                crossAxisCount: 3,
+                                childAspectRatio: 2,
+                                crossAxisSpacing: 12,
+                                mainAxisSpacing: 12,
+                              ),
                           itemCount: DateTime.now().year - 2022,
                           itemBuilder: (context, index) {
                             int year = DateTime.now().year - index;
                             bool isSelected = selectedYears.contains(year);
-                            return CheckboxListTile(
-                              title: Text('$year년'),
-                              value: isSelected,
-                              onChanged: (bool? value) {
+                            return ElevatedButton(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor:
+                                    isSelected
+                                        ? Colors.redAccent[200]
+                                        : Colors.grey[200],
+                                foregroundColor:
+                                    isSelected
+                                        ? Colors.white
+                                        : Colors.grey[700],
+                                elevation: isSelected ? 2 : 0,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                              ),
+                              onPressed: () {
                                 setState(() {
-                                  if (value == true) {
-                                    selectedYears.add(year);
-                                  } else {
+                                  if (isSelected) {
                                     selectedYears.remove(year);
+                                  } else {
+                                    selectedYears.add(year);
                                   }
                                 });
                               },
+                              child: Text(
+                                '$year',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight:
+                                      isSelected
+                                          ? FontWeight.bold
+                                          : FontWeight.normal,
+                                ),
+                              ),
                             );
                           },
                         ),
                       ),
-                      SizedBox(height: 20),
-                      ElevatedButton(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: oceanBlue,
-                          padding: EdgeInsets.symmetric(
-                            horizontal: 32,
-                            vertical: 16,
+                      SizedBox(height: 24),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          OutlinedButton(
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: Colors.grey[700],
+                              side: BorderSide(color: Colors.grey[400]!),
+                              padding: EdgeInsets.symmetric(
+                                horizontal: 24,
+                                vertical: 12,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(25),
+                              ),
+                            ),
+                            onPressed: () => Navigator.of(context).pop(),
+                            child: Text('취소'),
                           ),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(30),
+                          SizedBox(width: 16),
+                          ElevatedButton(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: oceanBlue,
+                              foregroundColor: Colors.white,
+                              padding: EdgeInsets.symmetric(
+                                horizontal: 32,
+                                vertical: 12,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(25),
+                              ),
+                            ),
+                            onPressed:
+                                selectedYears.isEmpty
+                                    ? null
+                                    : () {
+                                      Navigator.of(context).pop();
+                                      _showYearComparisonChart(
+                                        selectedYears,
+                                        selectedType,
+                                        isCumulative, // 새 파라미터 전달
+                                      );
+                                    },
+                            child: Text('차트 보기'),
                           ),
-                        ),
-                        onPressed:
-                            selectedYears.isEmpty
-                                ? null
-                                : () {
-                                  Navigator.of(context).pop();
-                                  _showYearComparisonChart(
-                                    selectedYears,
-                                    selectedType,
-                                  );
-                                },
-                        child: Text(
-                          '차트 보기',
-                          style: TextStyle(fontSize: 16, color: Colors.white),
-                        ),
+                        ],
                       ),
                     ],
                   ),
@@ -2774,7 +2895,11 @@ class _StatisticsPageState extends State<StatisticsPage>
     );
   }
 
-  void _showYearComparisonChart(List<int> years, String type) async {
+  void _showYearComparisonChart(
+    List<int> years,
+    String type,
+    bool isCumulative,
+  ) async {
     try {
       setState(() {
         isLoading = true;
@@ -2782,25 +2907,96 @@ class _StatisticsPageState extends State<StatisticsPage>
 
       Map<int, Map<String, List<int>>> yearlyData = {};
 
+      // 현재 연도와 월 가져오기
+      final now = DateTime.now();
+      final currentYear = now.year;
+      final currentMonth = now.month;
+
       // Fetch data for each selected year
       for (int year in years) {
-        DocumentSnapshot doc =
-            await FirebaseFirestore.instance
-                .collection('statistics')
-                .doc(year.toString())
-                .get();
+        yearlyData[year] = {};
+        yearlyData[year]!['외래'] = List<int>.filled(12, 0);
+        yearlyData[year]!['검진'] = List<int>.filled(12, 0);
 
-        if (doc.exists) {
-          Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
-          yearlyData[year] = {};
-          yearlyData[year]!['외래'] = List<int>.filled(12, 0);
-          yearlyData[year]!['검진'] = List<int>.filled(12, 0);
+        if (year == currentYear) {
+          // 현재 연도의 statistics 데이터 조회
+          DocumentSnapshot doc =
+              await FirebaseFirestore.instance
+                  .collection('statistics')
+                  .doc(year.toString())
+                  .get();
 
-          data.forEach((month, stats) {
-            int monthIndex = int.parse(month) - 1;
-            yearlyData[year]!['외래']![monthIndex] = stats['외래'] ?? 0;
-            yearlyData[year]!['검진']![monthIndex] = stats['검진'] ?? 0;
-          });
+          if (doc.exists) {
+            Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
+            // 현재 월을 제외한 모든 월의 데이터를 statistics에서 가져옴
+            data.forEach((month, stats) {
+              int monthIndex = int.parse(month) - 1;
+              if (monthIndex < currentMonth - 1) {
+                // 현재 월 이전의 데이터만 사용
+                yearlyData[year]!['외래']![monthIndex] = stats['외래'] ?? 0;
+                yearlyData[year]!['검진']![monthIndex] = stats['검진'] ?? 0;
+              }
+            });
+          }
+
+          // 현재 월의 데이터는 patients 컬렉션에서 직접 조회
+          DateTime startOfMonth = DateTime(year, currentMonth, 1);
+          DateTime endOfMonth = DateTime(year, currentMonth + 1, 0);
+
+          QuerySnapshot querySnapshot =
+              await FirebaseFirestore.instance
+                  .collection('patients')
+                  .where(
+                    'examDate',
+                    isGreaterThanOrEqualTo: DateFormat(
+                      'yyyy-MM-dd',
+                    ).format(startOfMonth),
+                  )
+                  .where(
+                    'examDate',
+                    isLessThanOrEqualTo: DateFormat(
+                      'yyyy-MM-dd',
+                    ).format(endOfMonth),
+                  )
+                  .get();
+
+          int outpatientCount = 0;
+          int screeningCount = 0;
+
+          for (var doc in querySnapshot.docs) {
+            Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
+
+            // GSF 데이터 확인
+            if (data['GSF'] != null) {
+              if (data['GSF']['gumjinOrNot'] == '외래') outpatientCount++;
+              if (data['GSF']['gumjinOrNot'] == '검진') screeningCount++;
+            }
+
+            // CSF 데이터 확인
+            if (data['CSF'] != null) {
+              if (data['CSF']['gumjinOrNot'] == '외래') outpatientCount++;
+              if (data['CSF']['gumjinOrNot'] == '검진') screeningCount++;
+            }
+          }
+
+          yearlyData[year]!['외래']![currentMonth - 1] = outpatientCount;
+          yearlyData[year]!['검진']![currentMonth - 1] = screeningCount;
+        } else {
+          // 이전 연도는 statistics 컬렉션에서 전체 데이터 조회
+          DocumentSnapshot doc =
+              await FirebaseFirestore.instance
+                  .collection('statistics')
+                  .doc(year.toString())
+                  .get();
+
+          if (doc.exists) {
+            Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
+            data.forEach((month, stats) {
+              int monthIndex = int.parse(month) - 1;
+              yearlyData[year]!['외래']![monthIndex] = stats['외래'] ?? 0;
+              yearlyData[year]!['검진']![monthIndex] = stats['검진'] ?? 0;
+            });
+          }
         }
       }
 
@@ -2823,7 +3019,7 @@ class _StatisticsPageState extends State<StatisticsPage>
                 child: Column(
                   children: [
                     Text(
-                      '년도별 통계 비교',
+                      '년도별 통계 비교${isCumulative ? ' (누적)' : ''}',
                       style: TextStyle(
                         fontSize: 24,
                         fontWeight: FontWeight.bold,
@@ -2832,9 +3028,18 @@ class _StatisticsPageState extends State<StatisticsPage>
                     ),
                     SizedBox(height: 20),
                     Expanded(
-                      child: YearComparisonChart(
-                        yearlyData: yearlyData,
-                        selectedType: type,
+                      child: SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        child: Container(
+                          width:
+                              MediaQuery.of(context).size.width *
+                              1.5, // 화면 너비의 1.5배
+                          child: YearComparisonChart(
+                            yearlyData: yearlyData,
+                            selectedType: type,
+                            isCumulative: isCumulative, // 새 파라미터 전달
+                          ),
+                        ),
                       ),
                     ),
                     SizedBox(height: 16),
@@ -4154,40 +4359,140 @@ class PatientListTile extends StatelessWidget {
 class YearComparisonChart extends StatelessWidget {
   final Map<int, Map<String, List<int>>> yearlyData;
   final String selectedType;
+  final bool isCumulative;
 
   const YearComparisonChart({
     Key? key,
     required this.yearlyData,
     required this.selectedType,
+    required this.isCumulative,
   }) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
-    return LineChart(
-      LineChartData(
-        gridData: FlGridData(show: true),
-        titlesData: FlTitlesData(
-          bottomTitles: AxisTitles(
-            sideTitles: SideTitles(
-              showTitles: true,
-              getTitlesWidget: (value, meta) {
-                return Text('${(value + 1).toInt()}월');
-              },
-              interval: 1,
-            ),
-          ),
-          leftTitles: AxisTitles(
-            sideTitles: SideTitles(
-              showTitles: true,
-              interval: 10,
-              reservedSize: 40,
+    return Column(
+      children: [
+        Expanded(
+          child: LineChart(
+            LineChartData(
+              gridData: FlGridData(show: true),
+              titlesData: FlTitlesData(
+                topTitles: AxisTitles(
+                  sideTitles: SideTitles(showTitles: false),
+                ),
+                rightTitles: AxisTitles(
+                  sideTitles: SideTitles(
+                    showTitles: true,
+                    reservedSize: 44,
+                    interval: isCumulative ? 1000 : 50, // 누적일 때 1000 단위
+                    getTitlesWidget: (value, meta) {
+                      return Text(
+                        value.toInt().toString(),
+                        style: TextStyle(fontSize: 12),
+                      );
+                    },
+                  ),
+                ),
+                bottomTitles: AxisTitles(
+                  sideTitles: SideTitles(
+                    showTitles: true,
+                    getTitlesWidget: (value, meta) {
+                      return Text('${(value + 1).toInt()}월');
+                    },
+                    interval: 1,
+                  ),
+                ),
+                leftTitles: AxisTitles(
+                  sideTitles: SideTitles(
+                    showTitles: true,
+                    reservedSize: 44,
+                    interval: isCumulative ? 1000 : 50, // 누적일 때 1000 단위
+                    getTitlesWidget: (value, meta) {
+                      return Text(
+                        value.toInt().toString(),
+                        style: TextStyle(fontSize: 12),
+                      );
+                    },
+                  ),
+                ),
+              ),
+              borderData: FlBorderData(show: true),
+              lineBarsData: _createLineBarsData(),
             ),
           ),
         ),
-        borderData: FlBorderData(show: true),
-        lineBarsData: _createLineBarsData(),
-      ),
+        SizedBox(height: 20),
+        Wrap(
+          spacing: 20,
+          alignment: WrapAlignment.center,
+          children: _buildLegendItems(),
+        ),
+      ],
     );
+  }
+
+  List<Widget> _buildLegendItems() {
+    List<Widget> legendItems = [];
+    List<Color> colors = [
+      Colors.blue,
+      Colors.red,
+      Colors.green,
+      Colors.orange,
+      Colors.purple,
+    ];
+
+    int colorIndex = 0;
+    yearlyData.forEach((year, typeData) {
+      if (selectedType == '전체') {
+        legendItems.add(
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 16,
+                height: 2,
+                color: colors[colorIndex % colors.length],
+              ),
+              SizedBox(width: 4),
+              Text('${year}년 전체${isCumulative ? ' (누적)' : ''}'),
+            ],
+          ),
+        );
+      } else if (selectedType == '외래') {
+        legendItems.add(
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 16,
+                height: 2,
+                color: colors[colorIndex % colors.length],
+              ),
+              SizedBox(width: 4),
+              Text('${year}년 외래${isCumulative ? ' (누적)' : ''}'),
+            ],
+          ),
+        );
+      } else if (selectedType == '검진') {
+        legendItems.add(
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 16,
+                height: 2,
+                color: colors[colorIndex % colors.length],
+              ),
+              SizedBox(width: 4),
+              Text('${year}년 검진${isCumulative ? ' (누적)' : ''}'),
+            ],
+          ),
+        );
+      }
+      colorIndex += 1;
+    });
+
+    return legendItems;
   }
 
   List<LineChartBarData> _createLineBarsData() {
@@ -4202,27 +4507,74 @@ class YearComparisonChart extends StatelessWidget {
 
     int colorIndex = 0;
     yearlyData.forEach((year, typeData) {
-      if (selectedType == '전체' || selectedType == '외래') {
+      if (selectedType == '전체') {
+        List<int> totalData = List.generate(12, (index) {
+          if (isCumulative) {
+            // 누적 데이터 계산
+            int sum = 0;
+            for (int i = 0; i <= index; i++) {
+              sum += typeData['외래']![i] + typeData['검진']![i];
+            }
+            return sum;
+          } else {
+            return typeData['외래']![index] + typeData['검진']![index];
+          }
+        });
+
         bars.add(
           _createLineChartBarData(
             year,
-            typeData['외래']!,
+            totalData,
+            colors[colorIndex % colors.length],
+            '전체',
+          ),
+        );
+      } else if (selectedType == '외래') {
+        List<int> outpatientData = List.generate(12, (index) {
+          if (isCumulative) {
+            // 누적 데이터 계산
+            int sum = 0;
+            for (int i = 0; i <= index; i++) {
+              sum += typeData['외래']![i];
+            }
+            return sum;
+          } else {
+            return typeData['외래']![index];
+          }
+        });
+
+        bars.add(
+          _createLineChartBarData(
+            year,
+            outpatientData,
             colors[colorIndex % colors.length],
             '외래',
           ),
         );
-      }
-      if (selectedType == '전체' || selectedType == '검진') {
+      } else if (selectedType == '검진') {
+        List<int> screeningData = List.generate(12, (index) {
+          if (isCumulative) {
+            // 누적 데이터 계산
+            int sum = 0;
+            for (int i = 0; i <= index; i++) {
+              sum += typeData['검진']![i];
+            }
+            return sum;
+          } else {
+            return typeData['검진']![index];
+          }
+        });
+
         bars.add(
           _createLineChartBarData(
             year,
-            typeData['검진']!,
-            colors[(colorIndex + 1) % colors.length],
+            screeningData,
+            colors[colorIndex % colors.length],
             '검진',
           ),
         );
       }
-      colorIndex += 2;
+      colorIndex += 1;
     });
 
     return bars;
@@ -4236,7 +4588,7 @@ class YearComparisonChart extends StatelessWidget {
   ) {
     return LineChartBarData(
       spots:
-          data.asMap().entries.map((entry) {
+          data.asMap().entries.where((entry) => entry.value > 0).map((entry) {
             return FlSpot(entry.key.toDouble(), entry.value.toDouble());
           }).toList(),
       isCurved: true,
