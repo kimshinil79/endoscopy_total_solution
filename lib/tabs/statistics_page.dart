@@ -2739,11 +2739,14 @@ class _StatisticsPageState extends State<StatisticsPage>
                             backgroundColor:
                                 isCumulative
                                     ? Colors.amber[700]
-                                    : Colors.amber[100],
+                                    : Colors.grey[300],
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(12),
                               side: BorderSide(
-                                color: Colors.amber[700]!,
+                                color:
+                                    isCumulative
+                                        ? Colors.amber[700]!
+                                        : Colors.grey[700]!,
                                 width: 1,
                               ),
                             ),
@@ -3852,20 +3855,26 @@ class _StatisticsPageState extends State<StatisticsPage>
                         ),
                       ),
                     ),
-                    SizedBox(height: 16),
+                    SizedBox(height: 4),
                     Divider(),
                     Row(
                       children: [
                         Expanded(
                           child: ElevatedButton(
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: Color(
-                                0xFF0077B6,
-                              ), // Darker blue for "의사별 통계"
-                              foregroundColor: Colors.white,
-                              minimumSize: Size(double.infinity, 50),
+                              backgroundColor: Colors.white, // 배경색을 흰색으로
+                              foregroundColor: Colors.grey[600], // 글자색을 연한 회색으로
+                              side: BorderSide(
+                                color: Color.fromARGB(255, 1, 31, 75),
+                                width: 2,
+                              ), // 테두리 색상 추가
+                              elevation: 0, // 그림자 제거
                               shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(8),
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              padding: EdgeInsets.symmetric(
+                                horizontal: 20,
+                                vertical: 15,
                               ),
                             ),
                             onPressed: () {
@@ -3877,17 +3886,23 @@ class _StatisticsPageState extends State<StatisticsPage>
                             ),
                           ),
                         ),
-                        SizedBox(width: 16), // Add space between the buttons
+                        SizedBox(width: 8), // Add space between the buttons
                         Expanded(
                           child: ElevatedButton(
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: Color(
-                                0xFF0096C7,
-                              ), // Medium blue for "검사 요약"
-                              foregroundColor: Colors.white,
-                              minimumSize: Size(double.infinity, 50),
+                              backgroundColor: Colors.white,
+                              foregroundColor: Colors.grey[600],
+                              side: BorderSide(
+                                color: Color.fromARGB(255, 3, 57, 108),
+                                width: 2,
+                              ),
+                              elevation: 0,
                               shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(8),
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              padding: EdgeInsets.symmetric(
+                                horizontal: 20,
+                                vertical: 15,
                               ),
                             ),
                             onPressed: _querySummaryPatients,
@@ -3899,19 +3914,25 @@ class _StatisticsPageState extends State<StatisticsPage>
                         ),
                       ],
                     ),
-                    SizedBox(height: 16),
+                    SizedBox(height: 8),
                     Row(
                       children: [
                         Expanded(
                           child: ElevatedButton(
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: Color(
-                                0xFF00B4D8,
-                              ), // Lighter blue for "방별 요약"
-                              foregroundColor: Colors.white,
-                              minimumSize: Size(double.infinity, 50),
+                              backgroundColor: Colors.white,
+                              foregroundColor: Colors.grey[600],
+                              side: BorderSide(
+                                color: Color.fromARGB(255, 0, 91, 150),
+                                width: 2,
+                              ),
+                              elevation: 0,
                               shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(8),
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              padding: EdgeInsets.symmetric(
+                                horizontal: 20,
+                                vertical: 15,
                               ),
                             ),
                             onPressed: _queryRoomSummary,
@@ -3921,17 +3942,23 @@ class _StatisticsPageState extends State<StatisticsPage>
                             ),
                           ),
                         ),
-                        SizedBox(width: 16), // Add space between the buttons
+                        SizedBox(width: 8), // Add space between the buttons
                         Expanded(
                           child: ElevatedButton(
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: Color(
-                                0xFF48CAE4,
-                              ), // Lightest blue for "년도 비교"
-                              foregroundColor: Colors.white,
-                              minimumSize: Size(double.infinity, 50),
+                              backgroundColor: Colors.white,
+                              foregroundColor: Colors.grey[600],
+                              side: BorderSide(
+                                color: Color.fromARGB(255, 100, 151, 177),
+                                width: 2,
+                              ),
+                              elevation: 0,
                               shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(8),
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              padding: EdgeInsets.symmetric(
+                                horizontal: 20,
+                                vertical: 15,
                               ),
                             ),
                             onPressed:
@@ -3959,7 +3986,12 @@ class _StatisticsPageState extends State<StatisticsPage>
                           flex: 4,
                           child: ElevatedButton.icon(
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: Color(0xFF8B1E3F), // 깊은 버건디
+                              backgroundColor: Color.fromARGB(
+                                255,
+                                0,
+                                76,
+                                76,
+                              ), // 깊은 버건디
                               foregroundColor: Colors.white,
                               padding: EdgeInsets.symmetric(vertical: 12),
                               shape: RoundedRectangleBorder(
@@ -3979,7 +4011,12 @@ class _StatisticsPageState extends State<StatisticsPage>
                           flex: 4,
                           child: ElevatedButton.icon(
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: Color(0xFFA63A50), // 진한 로즈
+                              backgroundColor: Color.fromARGB(
+                                255,
+                                102,
+                                178,
+                                178,
+                              ), // 진한 로즈
                               foregroundColor: Colors.white,
                               padding: EdgeInsets.symmetric(vertical: 12),
                               shape: RoundedRectangleBorder(
@@ -4003,7 +4040,12 @@ class _StatisticsPageState extends State<StatisticsPage>
                           flex: 3,
                           child: ElevatedButton.icon(
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: Color(0xFFB85C6D), // 중간 로즈
+                              backgroundColor: Color.fromARGB(
+                                255,
+                                0,
+                                128,
+                                128,
+                              ), // 중간 로즈
                               foregroundColor: Colors.white,
                               padding: EdgeInsets.symmetric(vertical: 12),
                               shape: RoundedRectangleBorder(
@@ -4023,7 +4065,12 @@ class _StatisticsPageState extends State<StatisticsPage>
                           flex: 3,
                           child: ElevatedButton.icon(
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: Color(0xFFC27C88), // 연한 로즈
+                              backgroundColor: Color.fromARGB(
+                                255,
+                                0,
+                                102,
+                                102,
+                              ), // 연한 로즈
                               foregroundColor: Colors.white,
                               padding: EdgeInsets.symmetric(vertical: 12),
                               shape: RoundedRectangleBorder(

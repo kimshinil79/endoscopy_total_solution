@@ -137,6 +137,169 @@ class _CSFFormWidgetState extends State<CSFFormWidget> {
     );
   }
 
+  void _showBxSelectionDialog() {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Text(
+            'Bx 선택',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w600,
+              color: Colors.indigo[800],
+            ),
+          ),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(15),
+          ),
+          contentPadding: EdgeInsets.fromLTRB(20, 10, 20, 20),
+          content: Container(
+            width: double.maxFinite,
+            child: Wrap(
+              spacing: 8.0,
+              runSpacing: 8.0,
+              alignment: WrapAlignment.center,
+              children:
+                  ['없음', '1', '2', '3', '4', '5'].map((value) {
+                    return SizedBox(
+                      width: 60,
+                      height: 40,
+                      child: ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor:
+                              widget.selectedBx == value
+                                  ? Colors.indigoAccent
+                                  : Colors.white,
+                          foregroundColor:
+                              widget.selectedBx == value
+                                  ? Colors.white
+                                  : Colors.black87,
+                          elevation: widget.selectedBx == value ? 2 : 0,
+                          padding: EdgeInsets.zero,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                            side: BorderSide(
+                              color:
+                                  widget.selectedBx == value
+                                      ? Colors.transparent
+                                      : Colors.grey.shade300,
+                            ),
+                          ),
+                        ),
+                        onPressed: () {
+                          widget.onSelectedBxChanged(value);
+                          Navigator.of(context).pop();
+                        },
+                        child: Text(
+                          value,
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                    );
+                  }).toList(),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              style: TextButton.styleFrom(
+                foregroundColor: Colors.grey[700],
+                padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              ),
+              child: Text('취소', style: TextStyle(fontSize: 15)),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _showPolypectomySelectionDialog() {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Text(
+            'Polypectomy 선택',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w600,
+              color: Colors.indigo[800],
+            ),
+          ),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(15),
+          ),
+          contentPadding: EdgeInsets.fromLTRB(20, 10, 20, 20),
+          content: Container(
+            width: double.maxFinite,
+            child: Wrap(
+              spacing: 8.0,
+              runSpacing: 8.0,
+              alignment: WrapAlignment.center,
+              children:
+                  ['없음', '1', '2', '3', '4', '5'].map((value) {
+                    return SizedBox(
+                      width: 60,
+                      height: 40,
+                      child: ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor:
+                              widget.selectedPolypectomy == value
+                                  ? Colors.indigoAccent
+                                  : Colors.white,
+                          foregroundColor:
+                              widget.selectedPolypectomy == value
+                                  ? Colors.white
+                                  : Colors.black87,
+                          elevation:
+                              widget.selectedPolypectomy == value ? 2 : 0,
+                          padding: EdgeInsets.zero,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                            side: BorderSide(
+                              color:
+                                  widget.selectedPolypectomy == value
+                                      ? Colors.transparent
+                                      : Colors.grey.shade300,
+                            ),
+                          ),
+                        ),
+                        onPressed: () {
+                          widget.onSelectedPolypectomyChanged(value);
+                          Navigator.of(context).pop();
+                        },
+                        child: Text(
+                          value,
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                    );
+                  }).toList(),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              style: TextButton.styleFrom(
+                foregroundColor: Colors.grey[700],
+                padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              ),
+              child: Text('취소', style: TextStyle(fontSize: 15)),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   Widget _machineButton(String key) {
     bool isSelected = widget.selectedScopes.containsKey(key);
     return GestureDetector(
@@ -299,44 +462,29 @@ class _CSFFormWidgetState extends State<CSFFormWidget> {
           Divider(color: Colors.black),
           Row(
             children: [
-              Text(
-                'Polypectomy',
-                style: TextStyle(fontWeight: FontWeight.bold),
+              ElevatedButton(
+                onPressed: _showPolypectomySelectionDialog,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.white,
+                  foregroundColor: Colors.black87,
+                  elevation: 1,
+                  padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(6),
+                    side: BorderSide(color: Colors.grey.shade300),
+                  ),
+                ),
+                child: Text(
+                  'polypectomy: ${widget.selectedPolypectomy ?? '없음'}',
+                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+                ),
               ),
-              SizedBox(width: 8),
-              DropdownButton<String>(
-                value: widget.selectedPolypectomy,
-                onChanged: widget.onSelectedPolypectomyChanged,
-                items:
-                    [
-                      '없음',
-                      '1',
-                      '2',
-                      '3',
-                      '4',
-                      '5',
-                      '6',
-                      '7',
-                      '8',
-                      '9',
-                      '10',
-                      '11',
-                      '12',
-                      '13',
-                      '14',
-                      '15',
-                    ].map<DropdownMenuItem<String>>((String value) {
-                      return DropdownMenuItem<String>(
-                        value: value,
-                        child: Text(value),
-                      );
-                    }).toList(),
-              ),
-              Spacer(),
+              //Spacer(),
               Row(
                 mainAxisSize: MainAxisSize.min,
+                spacing: -10,
                 children:
-                    ['1', '2', '3']
+                    ['1', '2', '3', '4']
                         .map(
                           (value) => Padding(
                             padding: const EdgeInsets.symmetric(horizontal: 0),
@@ -383,62 +531,62 @@ class _CSFFormWidgetState extends State<CSFFormWidget> {
           Divider(color: Colors.black),
           Row(
             children: [
-              Text('Bx', style: TextStyle(fontWeight: FontWeight.bold)),
-              SizedBox(width: 8),
-              DropdownButton<String>(
-                value: widget.selectedBx,
-                onChanged: widget.onSelectedBxChanged,
-                items:
-                    [
-                      '없음',
-                      '1',
-                      '2',
-                      '3',
-                      '4',
-                      '5',
-                    ].map<DropdownMenuItem<String>>((String value) {
-                      return DropdownMenuItem<String>(
-                        value: value,
-                        child: Text(value),
-                      );
-                    }).toList(),
+              ElevatedButton(
+                onPressed: _showBxSelectionDialog,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.white,
+                  foregroundColor: Colors.black87,
+                  elevation: 1,
+                  padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(6),
+                    side: BorderSide(color: Colors.grey.shade300),
+                  ),
+                ),
+                child: Text(
+                  'Bx: ${widget.selectedBx}',
+                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+                ),
               ),
-              Wrap(
-                spacing: -7,
-                runSpacing: 0,
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                spacing: -10,
                 children:
                     ['1', '2', '3']
                         .map(
-                          (value) => ElevatedButton(
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor:
-                                  widget.selectedBx == value
-                                      ? Colors.blueAccent
-                                      : Colors.white60,
-                              shape: CircleBorder(),
-                              padding: EdgeInsets.zero,
-                            ),
-                            onPressed: () {
-                              if (widget.selectedBx == value) {
-                                // 이미 선택된 버튼을 다시 누르면 선택 해제
-                                widget.onSelectedBxChanged('없음');
-                              } else {
-                                // 다른 버튼을 누르면 해당 버튼 선택
-                                widget.onSelectedBxChanged(value);
-                              }
-                            },
-                            child: Container(
-                              width: 30,
-                              height: 30,
-                              alignment: Alignment.center,
-                              child: Text(
-                                value,
-                                style: TextStyle(
-                                  color:
-                                      widget.selectedBx == value
-                                          ? Colors.white
-                                          : Colors.white60,
-                                  fontSize: 12,
+                          (value) => Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 0),
+                            child: ElevatedButton(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor:
+                                    widget.selectedBx == value
+                                        ? Colors.blueAccent
+                                        : Colors.white60,
+                                shape: CircleBorder(),
+                                padding: EdgeInsets.zero,
+                              ),
+                              onPressed: () {
+                                if (widget.selectedBx == value) {
+                                  // 이미 선택된 버튼을 다시 누르면 선택 해제
+                                  widget.onSelectedBxChanged('없음');
+                                } else {
+                                  // 다른 버튼을 누르면 해당 버튼 선택
+                                  widget.onSelectedBxChanged(value);
+                                }
+                              },
+                              child: Container(
+                                width: 30,
+                                height: 30,
+                                alignment: Alignment.center,
+                                child: Text(
+                                  value,
+                                  style: TextStyle(
+                                    color:
+                                        widget.selectedPolypectomy == value
+                                            ? Colors.white
+                                            : Colors.white60,
+                                    fontSize: 12,
+                                  ),
                                 ),
                               ),
                             ),
