@@ -242,7 +242,9 @@ class _GSFFormWidgetState extends State<GSFFormWidget> {
               runSpacing: 8.0,
               alignment: WrapAlignment.center,
               children:
-                  ['없음', '1', '2', '3', '4', '5'].map((value) {
+                  ['없음', '1', '2', '3', '4', '5', '6', '7', '8', '9'].map((
+                    value,
+                  ) {
                     return SizedBox(
                       width: 60,
                       height: 40,
