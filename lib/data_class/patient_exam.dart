@@ -40,10 +40,10 @@ class Patient {
       'gender': gender,
       'age': age,
       'Room': Room,
-      'birthday': dateFormat.format(birthday),  // Format birthday
+      'birthday': dateFormat.format(birthday),
       'doctor': doctor,
-      'examDate': dateFormat.format(examDate),  // Format examDate
-      'examTime': examTime,  // Store examTime as 24-hour format
+      'examDate': dateFormat.format(examDate),
+      'examTime': examTime,
       'GSF': GSF?.toMap(),
       'CSF': CSF?.toMap(),
       'sig': sig?.toMap(),
@@ -58,9 +58,15 @@ class Patient {
       gender: map['gender'] ?? '',
       age: map['age'] ?? 0,
       Room: map['Room'] ?? '',
-      birthday: map['birthday'] != null ? DateFormat('yyyy-MM-dd').parse(map['birthday']) : DateTime.now(),
+      birthday:
+          map['birthday'] != null
+              ? DateFormat('yyyy-MM-dd').parse(map['birthday'])
+              : DateTime.now(),
       doctor: map['doctor'] ?? '',
-      examDate: map['examDate'] != null ? DateFormat('yyyy-MM-dd').parse(map['examDate']) : DateTime.now(),
+      examDate:
+          map['examDate'] != null
+              ? DateFormat('yyyy-MM-dd').parse(map['examDate'])
+              : DateTime.now(),
       examTime: map['examTime'] ?? '',
       GSF: map['GSF'] != null ? Endoscopy.fromMap(map['GSF']) : null,
       CSF: map['CSF'] != null ? Endoscopy.fromMap(map['CSF']) : null,
@@ -81,20 +87,30 @@ class Endoscopy {
     required this.sleepOrNot,
     required this.scopes,
     required this.examDetail,
-    this.cancel =false,
+    this.cancel = false,
   });
 
   factory Endoscopy.fromMap(Map<String, dynamic> map) {
+    final scopesData = map['scopes'] as Map<String, dynamic>?;
+    final Map<String, Map<String, String>> convertedScopes = {};
+
+    if (scopesData != null) {
+      scopesData.forEach((key, value) {
+        if (value is Map) {
+          convertedScopes[key] = Map<String, String>.from(
+            value.map((k, v) => MapEntry(k.toString(), v.toString())),
+          );
+        }
+      });
+    }
+
     return Endoscopy(
-      gumjinOrNot: map['gumjinOrNot'] as String,
-      sleepOrNot: map['sleepOrNot'] as String,
-      scopes: (map['scopes'] as Map<String, dynamic>).map(
-            (key, value) => MapEntry(
-          key,
-          Map<String, String>.from(value as Map),
-        ),
+      gumjinOrNot: map['gumjinOrNot'] as String? ?? '',
+      sleepOrNot: map['sleepOrNot'] as String? ?? '',
+      scopes: convertedScopes,
+      examDetail: ExaminationDetails.fromMap(
+        (map['examDetail'] as Map<String, dynamic>?) ?? {},
       ),
-      examDetail: ExaminationDetails.fromMap(map['examDetail'] as Map<String, dynamic>),
       cancel: map['cancel'] as bool? ?? false,
     );
   }

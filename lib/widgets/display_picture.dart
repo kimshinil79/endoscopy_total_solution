@@ -7,6 +7,7 @@ import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import '../provider/patient_provider.dart';
 import '../main.dart';
+import 'package:uuid/uuid.dart';
 
 class DisplayPictureScreen extends StatefulWidget {
   final String imagePath;
@@ -18,7 +19,6 @@ class DisplayPictureScreen extends StatefulWidget {
 }
 
 class _DisplayPictureScreenState extends State<DisplayPictureScreen> {
-
   bool _isSaving = false;
   bool _isStoolOB = false;
 
@@ -74,11 +74,12 @@ class _DisplayPictureScreenState extends State<DisplayPictureScreen> {
     String startOfDay = '${formattedToday}T00:00:00.000000';
     String endOfDay = '${formattedToday}T23:59:59.999999';
 
-    QuerySnapshot querySnapshot = await FirebaseFirestore.instance
-        .collection('patients')
-        .where('examDate', isGreaterThanOrEqualTo: startOfDay)
-        .where('examDate', isLessThanOrEqualTo: endOfDay)
-        .get();
+    QuerySnapshot querySnapshot =
+        await FirebaseFirestore.instance
+            .collection('patients')
+            .where('examDate', isGreaterThanOrEqualTo: startOfDay)
+            .where('examDate', isLessThanOrEqualTo: endOfDay)
+            .get();
 
     _patientProvider.setNumberOfExams(querySnapshot.docs.length);
   }
@@ -97,7 +98,9 @@ class _DisplayPictureScreenState extends State<DisplayPictureScreen> {
     final textRecognizer = TextRecognizer(script: TextRecognitionScript.korean);
 
     try {
-      final RecognizedText recognizedText = await textRecognizer.processImage(inputImage);
+      final RecognizedText recognizedText = await textRecognizer.processImage(
+        inputImage,
+      );
       for (TextBlock block in recognizedText.blocks) {
         for (TextLine line in block.lines) {
           if (line.text.contains("환자번호")) {
@@ -122,7 +125,10 @@ class _DisplayPictureScreenState extends State<DisplayPictureScreen> {
             patientName = extractInfo(line.text, ": ")[1];
           }
           if (line.text.contains("성별/나이")) {
-            final List<String> genderAge = extractInfo(extractInfo(line.text, ": ")[1], "/");
+            final List<String> genderAge = extractInfo(
+              extractInfo(line.text, ": ")[1],
+              "/",
+            );
             gender = genderAge[0].trim();
             age = genderAge[1].trim();
           }
@@ -140,7 +146,6 @@ class _DisplayPictureScreenState extends State<DisplayPictureScreen> {
         birthdayController.text = birthday;
         _isProcessing = false;
         _validateInputs();
-
       });
     } catch (e) {
       setState(() {
@@ -155,27 +160,34 @@ class _DisplayPictureScreenState extends State<DisplayPictureScreen> {
     List<String> invalidFields = [];
 
     // 이름 검증
-    if (patientNameController.text.isEmpty  || patientNameController.text.contains('Data')) {
+    if (patientNameController.text.isEmpty ||
+        patientNameController.text.contains('Data')) {
       invalidFields.add('이름');
     }
 
     // 성별 검증
-    if (genderController.text.isEmpty || !['M', 'F'].contains(genderController.text)) {
+    if (genderController.text.isEmpty ||
+        !['M', 'F'].contains(genderController.text)) {
       invalidFields.add('성별');
     }
 
     // 나이 검증
-    if (ageController.text.isEmpty || int.tryParse(ageController.text) == null) {
+    if (ageController.text.isEmpty ||
+        int.tryParse(ageController.text) == null) {
       invalidFields.add('나이');
     }
 
     // 환자번호 검증
-    if (patientIDController.text.isEmpty || patientIDController.text.contains(' ') || patientIDController.text.contains('Data')) {
+    if (patientIDController.text.isEmpty ||
+        patientIDController.text.contains(' ') ||
+        patientIDController.text.contains('Data')) {
       invalidFields.add('환자번호');
     }
 
     // 생년월일 검증
-    if (birthdayController.text.isEmpty || !_isValidDateFormat(birthdayController.text) || birthdayController.text.contains('Data')) {
+    if (birthdayController.text.isEmpty ||
+        !_isValidDateFormat(birthdayController.text) ||
+        birthdayController.text.contains('Data')) {
       invalidFields.add('생년월일');
     }
 
@@ -216,16 +228,17 @@ class _DisplayPictureScreenState extends State<DisplayPictureScreen> {
               children: [
                 Text('다음 항목을 확인해 주세요:'),
                 SizedBox(height: 10),
-                ...invalidFields.map((field) =>
-                    Padding(
-                      padding: const EdgeInsets.only(left: 10),
-                      child: Text('• $field',
-                        style: TextStyle(
-                            color: Colors.redAccent,
-                            fontWeight: FontWeight.bold
-                        ),
+                ...invalidFields.map(
+                  (field) => Padding(
+                    padding: const EdgeInsets.only(left: 10),
+                    child: Text(
+                      '• $field',
+                      style: TextStyle(
+                        color: Colors.redAccent,
+                        fontWeight: FontWeight.bold,
                       ),
-                    )
+                    ),
+                  ),
                 ),
               ],
             ),
@@ -277,11 +290,12 @@ class _DisplayPictureScreenState extends State<DisplayPictureScreen> {
       final today = DateFormat('yyyy-MM-dd').format(now);
 
       // Firestore에서 같은 날짜, 같은 이름을 가진 환자 검색
-      QuerySnapshot querySnapshot = await FirebaseFirestore.instance
-          .collection('patients')
-          .where('examDate', isEqualTo: today)
-          .where('name', isEqualTo: patientNameController.text)
-          .get();
+      QuerySnapshot querySnapshot =
+          await FirebaseFirestore.instance
+              .collection('patients')
+              .where('examDate', isEqualTo: today)
+              .where('name', isEqualTo: patientNameController.text)
+              .get();
 
       // 중복된 환자가 있는 경우
       if (querySnapshot.docs.isNotEmpty) {
@@ -306,58 +320,63 @@ class _DisplayPictureScreenState extends State<DisplayPictureScreen> {
         return; // 함수 종료
       }
 
-      Endoscopy? endoscopyData = _isCheckedEndoscopy
-          ? Endoscopy(
-        gumjinOrNot: _visitTypeEndoscopy,
-        sleepOrNot: _procedureTypeEndoscopy,
-        scopes: _selectedGsfScopes,
-        examDetail: ExaminationDetails(
-          Bx: '없음',
-          polypectomy: '없음',
-          emergency: false,
-          CLO: false,
-          PEG: false,
-        ),
-      )
-          : null;
+      Endoscopy? endoscopyData =
+          _isCheckedEndoscopy
+              ? Endoscopy(
+                gumjinOrNot: _visitTypeEndoscopy,
+                sleepOrNot: _procedureTypeEndoscopy,
+                scopes: _selectedGsfScopes,
+                examDetail: ExaminationDetails(
+                  Bx: '없음',
+                  polypectomy: '없음',
+                  emergency: false,
+                  CLO: false,
+                  PEG: false,
+                ),
+              )
+              : null;
 
-      Endoscopy? colonoscopyData = _isCheckedColonoscopy
-          ? Endoscopy(
-        gumjinOrNot: _visitTypeColonoscopy,
-        sleepOrNot: _procedureTypeColonoscopy,
-        scopes: _selectedCsfScopes,
-        examDetail: ExaminationDetails(
-          Bx: '없음',
-          polypectomy: '없음',
-          emergency: false,
-          stoolOB: _isStoolOB,
-        ),
-      )
-          : null;
+      Endoscopy? colonoscopyData =
+          _isCheckedColonoscopy
+              ? Endoscopy(
+                gumjinOrNot: _visitTypeColonoscopy,
+                sleepOrNot: _procedureTypeColonoscopy,
+                scopes: _selectedCsfScopes,
+                examDetail: ExaminationDetails(
+                  Bx: '없음',
+                  polypectomy: '없음',
+                  emergency: false,
+                  stoolOB: _isStoolOB,
+                ),
+              )
+              : null;
 
-      Endoscopy? sigData = _isCheckedSig
-          ? Endoscopy(
-        gumjinOrNot: '외래',
-        sleepOrNot: '일반',
-        scopes: _selectedSifScopes,
-        examDetail: ExaminationDetails(
-          Bx: '없음',
-          polypectomy: '없음',
-          emergency: false,
-        ),
-      )
-          : null;
+      Endoscopy? sigData =
+          _isCheckedSig
+              ? Endoscopy(
+                gumjinOrNot: '외래',
+                sleepOrNot: '일반',
+                scopes: _selectedSifScopes,
+                examDetail: ExaminationDetails(
+                  Bx: '없음',
+                  polypectomy: '없음',
+                  emergency: false,
+                ),
+              )
+              : null;
 
       final formatter = DateFormat('yyyy/MM/dd');
       DateTime birthday = formatter.parse(birthdayController.text);
 
       final formattForFireBaseUniqueName = DateFormat('yyyyMMddHHmmss');
       final formattedDate = formattForFireBaseUniqueName.format(now);
-      final uniqueDocName = "${patientNameController
-          .text}_${formattedDate}_${patientIDController.text}";
+      final uid = Uuid().v4(); // Generate a unique ID
+      final documentName =
+          "${patientNameController.text}_${formattedDate}_${uid}";
+      final uniqueDocName =
+          documentName; // uniqueDocName을 documentName과 동일하게 설정
 
-      final examTime24 = formatTimeOfDay(
-          TimeOfDay.now()); // Format examTime to 24-hour format
+      final examTime24 = formatTimeOfDay(TimeOfDay.now());
 
       Patient patient = Patient(
         uniqueDocName: uniqueDocName,
@@ -370,26 +389,31 @@ class _DisplayPictureScreenState extends State<DisplayPictureScreen> {
         doctor: '의사',
         examDate: now,
         examTime: '',
-        // Save the exam time in 24-hour format
         GSF: endoscopyData,
         CSF: colonoscopyData,
         sig: sigData,
       );
 
-      await FirebaseFirestore.instance.collection('patients')
-          .doc(uniqueDocName)
+      // 문서 이름에 uniqueDocName이 포함되어 있는지 확인
+      if (!documentName.contains(uid)) {
+        throw Exception('문서 이름에 고유 ID가 포함되어 있지 않습니다.');
+      }
+
+      await FirebaseFirestore.instance
+          .collection('patients')
+          .doc(documentName)
           .set(patient.toMap());
       _patientProvider.setPatient(patient);
       await _patientProvider.refreshExamCount();
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('저장이 완료되었습니다.')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('저장이 완료되었습니다.')));
       Navigator.popUntil(context, ModalRoute.withName('/'));
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('저장 중 오류가 발생했습니다. 다시 시도해 주세요.')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('저장 중 오류가 발생했습니다. 다시 시도해 주세요.')));
     } finally {
       setState(() {
         _isSaving = false; // 저장 프로세스 종료
@@ -412,7 +436,6 @@ class _DisplayPictureScreenState extends State<DisplayPictureScreen> {
     );
   }
 
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -428,110 +451,141 @@ class _DisplayPictureScreenState extends State<DisplayPictureScreen> {
             _isProcessing
                 ? CircularProgressIndicator()
                 : Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Expanded(flex:5, child: _buildTextField(patientNameController, '이름'),),
-                      SizedBox(width: 10),
-                      Expanded(flex:1, child: _buildTextField(genderController, '성별')),
-                      SizedBox(width: 10),
-                      Expanded(flex:1, child: _buildTextField(ageController, '나이')),
-                    ],
-                  ),
-                  SizedBox(height: 10),
-                  Row(
-                    children: [
-                      Expanded(flex:4, child: _buildTextField(patientIDController, '환자번호')),
-                      SizedBox(width: 10,),
-                      Expanded(flex:4, child: _buildTextField(birthdayController, '생년월일')),
-                    ],
-                  ),
-                  SizedBox(height: 10),
-                  _buildExamTypeSection('위내시경', _isCheckedEndoscopy, (value) {
-                    setState(() {
-                      _isCheckedEndoscopy = value ?? false;
-                    });
-                  }),
-                  if (_isCheckedEndoscopy) ...[
-                    SizedBox(height: 10),
-                    _buildButtonGroup(
-                        '검진', '외래', '수면', '일반',
-                        _visitTypeEndoscopy, _procedureTypeEndoscopy,
-                            (value) {
-                          setState(() {
-                            _visitTypeEndoscopy = value;
-                          });
-                        },
-                            (value) {
-                          setState(() {
-                            _procedureTypeEndoscopy = value;
-                          });
-                        }
-                    ),
-                  ],
-                  SizedBox(height: 2),
-                  Divider(),
-                  SizedBox(height: 2,),
-                  _buildExamTypeSection('대장내시경', _isCheckedColonoscopy, (value) {
-                    setState(() {
-                      _isCheckedColonoscopy = value ?? false;
-                    });
-                  }),
-                  if (_isCheckedColonoscopy) ...[
-                    SizedBox(height: 10),
-                    _buildButtonGroup(
-                        '검진', '외래', '수면', '일반',
-                        _visitTypeColonoscopy, _procedureTypeColonoscopy,
-                            (value) {
-                          setState(() {
-                            _visitTypeColonoscopy = value;
-                          });
-                        },
-                            (value) {
-                          setState(() {
-                            _procedureTypeColonoscopy = value;
-                          });
-                        }
-                    ),
-                    if (_visitTypeColonoscopy == '검진') ...[
+                      Row(
+                        children: [
+                          Expanded(
+                            flex: 5,
+                            child: _buildTextField(patientNameController, '이름'),
+                          ),
+                          SizedBox(width: 10),
+                          Expanded(
+                            flex: 1,
+                            child: _buildTextField(genderController, '성별'),
+                          ),
+                          SizedBox(width: 10),
+                          Expanded(
+                            flex: 1,
+                            child: _buildTextField(ageController, '나이'),
+                          ),
+                        ],
+                      ),
                       SizedBox(height: 10),
-                      _buildStoolOBButton(),
-                    ],
-                  ],
-                  SizedBox(height: 2),
-                  Divider(),
-                  SizedBox(height: 2,),
-                  _buildExamTypeSection('S상 결장경', _isCheckedSig, (value) {
-                    setState(() {
-                      _isCheckedSig = value ?? false;
-                    });
-                  }),
-                  SizedBox(height: 5),
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      onPressed: _isSaveButtonEnabled() && !_isSaving
-                          ? () => _saveToFirestore(context)
-                          : null,
-                      child: _isSaving
-                          ? CircularProgressIndicator(color: Colors.white)
-                          : Text('저장'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.blue,
-                        foregroundColor: Colors.white,
-                        padding: EdgeInsets.symmetric(vertical: 15),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
+                      Row(
+                        children: [
+                          Expanded(
+                            flex: 4,
+                            child: _buildTextField(patientIDController, '환자번호'),
+                          ),
+                          SizedBox(width: 10),
+                          Expanded(
+                            flex: 4,
+                            child: _buildTextField(birthdayController, '생년월일'),
+                          ),
+                        ],
+                      ),
+                      SizedBox(height: 10),
+                      _buildExamTypeSection('위내시경', _isCheckedEndoscopy, (
+                        value,
+                      ) {
+                        setState(() {
+                          _isCheckedEndoscopy = value ?? false;
+                        });
+                      }),
+                      if (_isCheckedEndoscopy) ...[
+                        SizedBox(height: 10),
+                        _buildButtonGroup(
+                          '검진',
+                          '외래',
+                          '수면',
+                          '일반',
+                          _visitTypeEndoscopy,
+                          _procedureTypeEndoscopy,
+                          (value) {
+                            setState(() {
+                              _visitTypeEndoscopy = value;
+                            });
+                          },
+                          (value) {
+                            setState(() {
+                              _procedureTypeEndoscopy = value;
+                            });
+                          },
+                        ),
+                      ],
+                      SizedBox(height: 2),
+                      Divider(),
+                      SizedBox(height: 2),
+                      _buildExamTypeSection('대장내시경', _isCheckedColonoscopy, (
+                        value,
+                      ) {
+                        setState(() {
+                          _isCheckedColonoscopy = value ?? false;
+                        });
+                      }),
+                      if (_isCheckedColonoscopy) ...[
+                        SizedBox(height: 10),
+                        _buildButtonGroup(
+                          '검진',
+                          '외래',
+                          '수면',
+                          '일반',
+                          _visitTypeColonoscopy,
+                          _procedureTypeColonoscopy,
+                          (value) {
+                            setState(() {
+                              _visitTypeColonoscopy = value;
+                            });
+                          },
+                          (value) {
+                            setState(() {
+                              _procedureTypeColonoscopy = value;
+                            });
+                          },
+                        ),
+                        if (_visitTypeColonoscopy == '검진') ...[
+                          SizedBox(height: 10),
+                          _buildStoolOBButton(),
+                        ],
+                      ],
+                      SizedBox(height: 2),
+                      Divider(),
+                      SizedBox(height: 2),
+                      _buildExamTypeSection('S상 결장경', _isCheckedSig, (value) {
+                        setState(() {
+                          _isCheckedSig = value ?? false;
+                        });
+                      }),
+                      SizedBox(height: 5),
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton(
+                          onPressed:
+                              _isSaveButtonEnabled() && !_isSaving
+                                  ? () => _saveToFirestore(context)
+                                  : null,
+                          child:
+                              _isSaving
+                                  ? CircularProgressIndicator(
+                                    color: Colors.white,
+                                  )
+                                  : Text('저장'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.blue,
+                            foregroundColor: Colors.white,
+                            padding: EdgeInsets.symmetric(vertical: 15),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
                         ),
                       ),
-                    ),
+                    ],
                   ),
-                ],
-              ),
-            ),
+                ),
           ],
         ),
       ),
@@ -556,10 +610,17 @@ class _DisplayPictureScreenState extends State<DisplayPictureScreen> {
     );
   }
 
-  Widget _buildExamTypeSection(String title, bool isChecked, Function(bool?) onChanged) {
+  Widget _buildExamTypeSection(
+    String title,
+    bool isChecked,
+    Function(bool?) onChanged,
+  ) {
     return Row(
       children: [
-        Text(title, style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+        Text(
+          title,
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+        ),
         Checkbox(
           value: isChecked,
           onChanged: onChanged,
@@ -569,7 +630,16 @@ class _DisplayPictureScreenState extends State<DisplayPictureScreen> {
     );
   }
 
-  Widget _buildButtonGroup(String option1, String option2, String option3, String option4, String selectedValue1, String selectedValue2, Function(String) onChanged1, Function(String) onChanged2) {
+  Widget _buildButtonGroup(
+    String option1,
+    String option2,
+    String option3,
+    String option4,
+    String selectedValue1,
+    String selectedValue2,
+    Function(String) onChanged1,
+    Function(String) onChanged2,
+  ) {
     return Row(
       children: [
         Expanded(
@@ -577,8 +647,10 @@ class _DisplayPictureScreenState extends State<DisplayPictureScreen> {
             child: Text(option1),
             onPressed: () => onChanged1(option1),
             style: ElevatedButton.styleFrom(
-              backgroundColor: selectedValue1 == option1 ? Colors.blue : Colors.grey[300],
-              foregroundColor: selectedValue1 == option1 ? Colors.white : Colors.black,
+              backgroundColor:
+                  selectedValue1 == option1 ? Colors.blue : Colors.grey[300],
+              foregroundColor:
+                  selectedValue1 == option1 ? Colors.white : Colors.black,
             ),
           ),
         ),
@@ -588,8 +660,10 @@ class _DisplayPictureScreenState extends State<DisplayPictureScreen> {
             child: Text(option2),
             onPressed: () => onChanged1(option2),
             style: ElevatedButton.styleFrom(
-              backgroundColor: selectedValue1 == option2 ? Colors.blue : Colors.grey[300],
-              foregroundColor: selectedValue1 == option2 ? Colors.white : Colors.black,
+              backgroundColor:
+                  selectedValue1 == option2 ? Colors.blue : Colors.grey[300],
+              foregroundColor:
+                  selectedValue1 == option2 ? Colors.white : Colors.black,
             ),
           ),
         ),
@@ -601,8 +675,10 @@ class _DisplayPictureScreenState extends State<DisplayPictureScreen> {
             child: Text(option3),
             onPressed: () => onChanged2(option3),
             style: ElevatedButton.styleFrom(
-              backgroundColor: selectedValue2 == option3 ? Colors.blue : Colors.grey[300],
-              foregroundColor: selectedValue2 == option3 ? Colors.white : Colors.black,
+              backgroundColor:
+                  selectedValue2 == option3 ? Colors.blue : Colors.grey[300],
+              foregroundColor:
+                  selectedValue2 == option3 ? Colors.white : Colors.black,
             ),
           ),
         ),
@@ -612,15 +688,16 @@ class _DisplayPictureScreenState extends State<DisplayPictureScreen> {
             child: Text(option4),
             onPressed: () => onChanged2(option4),
             style: ElevatedButton.styleFrom(
-              backgroundColor: selectedValue2 == option4 ? Colors.blue : Colors.grey[300],
-              foregroundColor: selectedValue2 == option4 ? Colors.white : Colors.black,
+              backgroundColor:
+                  selectedValue2 == option4 ? Colors.blue : Colors.grey[300],
+              foregroundColor:
+                  selectedValue2 == option4 ? Colors.white : Colors.black,
             ),
           ),
         ),
       ],
     );
   }
-
 }
 
 String formatTimeOfDay(TimeOfDay time) {

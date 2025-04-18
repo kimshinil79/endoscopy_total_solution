@@ -2264,12 +2264,51 @@ class _StatisticsPageState extends State<StatisticsPage>
                           SizedBox(height: 12),
                           Align(
                             alignment: Alignment.centerRight,
-                            child: Text(
-                              dateRangeText,
-                              style: TextStyle(
-                                fontSize: 14,
-                                color: Colors.grey[600],
-                              ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.end,
+                              children: [
+                                Text(
+                                  dateRangeText,
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    color: Colors.grey[600],
+                                  ),
+                                ),
+                                IconButton(
+                                  icon: Icon(Icons.calendar_today, size: 18),
+                                  onPressed: () async {
+                                    final DateTimeRange? picked =
+                                        await showDateRangePicker(
+                                          context: context,
+                                          firstDate: DateTime(2000),
+                                          lastDate: DateTime(2101),
+                                          initialDateRange: DateTimeRange(
+                                            start: startDate!,
+                                            end: endDate!,
+                                          ),
+                                        );
+                                    if (picked != null &&
+                                        picked !=
+                                            DateTimeRange(
+                                              start: startDate!,
+                                              end: endDate!,
+                                            )) {
+                                      setState(() {
+                                        startDate = picked.start;
+                                        endDate = picked.end;
+                                        // 새로운 날짜 범위에 대한 통계 계산
+                                        calculateStats(currentDoctor).then((
+                                          newStats,
+                                        ) {
+                                          setState(() {
+                                            stats = newStats;
+                                          });
+                                        });
+                                      });
+                                    }
+                                  },
+                                ),
+                              ],
                             ),
                           ),
                           SizedBox(height: 12),
@@ -2309,7 +2348,14 @@ class _StatisticsPageState extends State<StatisticsPage>
                                   vertical: 16,
                                 ),
                               ),
-                              onPressed: () => Navigator.of(context).pop(),
+                              onPressed: () {
+                                // Update parent state before closing dialog
+                                this.setState(() {
+                                  // startDate and endDate are already updated in the dialog
+                                  // so we're just triggering a rebuild of the parent widget
+                                });
+                                Navigator.of(context).pop();
+                              },
                               child: Text(
                                 '닫기',
                                 style: TextStyle(
@@ -2441,219 +2487,329 @@ class _StatisticsPageState extends State<StatisticsPage>
   }
 
   void _showSummaryDialog(BuildContext context, List<Patient> patients) {
-    String dateRangeText =
-        '(${DateFormat('yyyy/MM/dd').format(startDate!)} - ${DateFormat('yyyy/MM/dd').format(endDate!)})';
-
-    int gsfGumjin =
-        patients
-            .where((p) => p.GSF != null && p.GSF!.gumjinOrNot == '검진')
-            .length;
-    int gsfNonGumjin =
-        patients
-            .where((p) => p.GSF != null && p.GSF!.gumjinOrNot == '외래')
-            .length;
-    int csfGumjin =
-        patients
-            .where((p) => p.CSF != null && p.CSF!.gumjinOrNot == '검진')
-            .length;
-    int csfNonGumjin =
-        patients
-            .where((p) => p.CSF != null && p.CSF!.gumjinOrNot == '외래')
-            .length;
-    int sigCount = patients.where((p) => p.sig != null).length;
-
-    List<TableRow> rows1 = [
-      TableRow(
-        children: [
-          TableCell(child: Center(child: Text(''))),
-          TableCell(child: Center(child: Text('검진'))),
-          TableCell(child: Center(child: Text('외래'))),
-          TableCell(child: Center(child: Text('총합수'))),
-        ],
-      ),
-      _buildTableRow('위내시경', gsfGumjin, gsfNonGumjin),
-      _buildTableRow('대장내시경', csfGumjin, csfNonGumjin),
-    ];
-
-    if (sigCount > 0) {
-      rows1.add(_buildTableRow('S상 결장경', 0, sigCount));
-    }
-
-    rows1.add(
-      _buildTableRow(
-        '총합수',
-        gsfGumjin + csfGumjin,
-        gsfNonGumjin + csfNonGumjin + sigCount,
-      ),
-    );
-
-    int gsfBxCount =
-        patients
-            .where((p) => p.GSF != null && p.GSF!.examDetail.Bx != '없음')
-            .length;
-    int gsfBxTotal = patients
-        .where((p) => p.GSF != null)
-        .fold(0, (sum, p) => sum + (int.tryParse(p.GSF!.examDetail.Bx) ?? 0));
-
-    int gsfPolypCount =
-        patients
-            .where(
-              (p) => p.GSF != null && p.GSF!.examDetail.polypectomy != '없음',
-            )
-            .length;
-    int gsfPolypTotal = patients
-        .where((p) => p.GSF != null)
-        .fold(
-          0,
-          (sum, p) => sum + (int.tryParse(p.GSF!.examDetail.polypectomy) ?? 0),
-        );
-
-    int csfBxCount =
-        patients
-            .where((p) => p.CSF != null && p.CSF!.examDetail.Bx != '없음')
-            .length;
-    int csfBxTotal = patients
-        .where((p) => p.CSF != null)
-        .fold(0, (sum, p) => sum + (int.tryParse(p.CSF!.examDetail.Bx) ?? 0));
-
-    int csfPolypCount =
-        patients
-            .where(
-              (p) => p.CSF != null && p.CSF!.examDetail.polypectomy != '없음',
-            )
-            .length;
-    int csfPolypTotal = patients
-        .where((p) => p.CSF != null)
-        .fold(
-          0,
-          (sum, p) => sum + (int.tryParse(p.CSF!.examDetail.polypectomy) ?? 0),
-        );
-
-    String formatCount(int count, int total) {
-      if (count == 0) return '0';
-      return '$count ($total)';
-    }
-
-    List<List<String>> table1Data = [
-      ['', '검진', '외래', '총합수'],
-      [
-        '위내시경',
-        gsfGumjin.toString(),
-        gsfNonGumjin.toString(),
-        (gsfGumjin + gsfNonGumjin).toString(),
-      ],
-      [
-        '대장내시경',
-        csfGumjin.toString(),
-        csfNonGumjin.toString(),
-        (csfGumjin + csfNonGumjin).toString(),
-      ],
-      ['S상결장경', '0', sigCount.toString(), sigCount.toString()],
-      [
-        '총합수',
-        (gsfGumjin + csfGumjin).toString(),
-        (gsfNonGumjin + csfNonGumjin + sigCount).toString(),
-        (gsfGumjin + gsfNonGumjin + csfGumjin + csfNonGumjin + sigCount)
-            .toString(),
-      ],
-    ];
-
-    List<List<String>> table2Data = [
-      ['', 'Bx', '절제술', 'CLO'],
-      [
-        '위내시경',
-        formatCount(gsfBxCount, gsfBxTotal),
-        formatCount(gsfPolypCount, gsfPolypTotal),
-        patients
-            .where((p) => p.GSF != null && p.GSF!.examDetail.CLO == true)
-            .length
-            .toString(),
-      ],
-      [
-        '대장내시경',
-        formatCount(csfBxCount, csfBxTotal),
-        formatCount(csfPolypCount, csfPolypTotal),
-        '',
-      ],
-    ];
-
+    // Create a StatefulBuilder to allow updating the dialog content
     showDialog(
       context: context,
       builder: (context) {
-        return Dialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
-          ),
-          child: Container(
-            width: MediaQuery.of(context).size.width * 0.9,
-            padding: const EdgeInsets.all(12.0),
-            child: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
+        return StatefulBuilder(
+          builder: (context, setState) {
+            // Date range text with the current dates
+            String dateRangeText =
+                '(${DateFormat('yyyy/MM/dd').format(startDate!)} - ${DateFormat('yyyy/MM/dd').format(endDate!)})';
+
+            // Calculate statistics based on current patients list
+            int gsfGumjin =
+                patients
+                    .where((p) => p.GSF != null && p.GSF!.gumjinOrNot == '검진')
+                    .length;
+            int gsfNonGumjin =
+                patients
+                    .where((p) => p.GSF != null && p.GSF!.gumjinOrNot == '외래')
+                    .length;
+            int csfGumjin =
+                patients
+                    .where((p) => p.CSF != null && p.CSF!.gumjinOrNot == '검진')
+                    .length;
+            int csfNonGumjin =
+                patients
+                    .where((p) => p.CSF != null && p.CSF!.gumjinOrNot == '외래')
+                    .length;
+            int sigCount = patients.where((p) => p.sig != null).length;
+
+            List<TableRow> rows1 = [
+              TableRow(
                 children: [
-                  Text(
-                    '검사 요약',
-                    style: TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                      color: oceanBlue,
-                    ),
-                  ),
-                  SizedBox(height: 8),
-                  Text(
-                    dateRangeText,
-                    style: TextStyle(fontSize: 14, color: Colors.grey[600]),
-                  ),
-                  SizedBox(height: 24),
-                  _buildSummaryTable(table1Data),
-                  SizedBox(height: 24),
-                  _buildSummaryTable(table2Data),
-                  SizedBox(height: 24),
-                  Text(
-                    '환자 목록',
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                      color: oceanBlue,
-                    ),
-                  ),
-                  SizedBox(height: 16),
-                  ListView.builder(
-                    shrinkWrap: true,
-                    physics: NeverScrollableScrollPhysics(),
-                    itemCount: patients.length,
-                    itemBuilder: (context, index) {
-                      return PatientListTile(
-                        patient: patients[index],
-                        tabController: widget.tabController,
-                      );
-                    },
-                  ),
-                  SizedBox(height: 24),
-                  Center(
-                    child: ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: oceanBlue,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(30),
-                        ),
-                        padding: EdgeInsets.symmetric(
-                          horizontal: 32,
-                          vertical: 16,
-                        ),
-                      ),
-                      onPressed: () => Navigator.of(context).pop(),
-                      child: Text(
-                        '닫기',
-                        style: TextStyle(fontSize: 16, color: Colors.white),
-                      ),
-                    ),
-                  ),
+                  TableCell(child: Center(child: Text(''))),
+                  TableCell(child: Center(child: Text('검진'))),
+                  TableCell(child: Center(child: Text('외래'))),
+                  TableCell(child: Center(child: Text('총합수'))),
                 ],
               ),
-            ),
-          ),
+              _buildTableRow('위내시경', gsfGumjin, gsfNonGumjin),
+              _buildTableRow('대장내시경', csfGumjin, csfNonGumjin),
+            ];
+
+            if (sigCount > 0) {
+              rows1.add(_buildTableRow('S상 결장경', 0, sigCount));
+            }
+
+            rows1.add(
+              _buildTableRow(
+                '총합수',
+                gsfGumjin + csfGumjin,
+                gsfNonGumjin + csfNonGumjin + sigCount,
+              ),
+            );
+
+            int gsfBxCount =
+                patients
+                    .where((p) => p.GSF != null && p.GSF!.examDetail.Bx != '없음')
+                    .length;
+            int gsfBxTotal = patients
+                .where((p) => p.GSF != null)
+                .fold(
+                  0,
+                  (sum, p) => sum + (int.tryParse(p.GSF!.examDetail.Bx) ?? 0),
+                );
+
+            int gsfPolypCount =
+                patients
+                    .where(
+                      (p) =>
+                          p.GSF != null &&
+                          p.GSF!.examDetail.polypectomy != '없음',
+                    )
+                    .length;
+            int gsfPolypTotal = patients
+                .where((p) => p.GSF != null)
+                .fold(
+                  0,
+                  (sum, p) =>
+                      sum + (int.tryParse(p.GSF!.examDetail.polypectomy) ?? 0),
+                );
+
+            int csfBxCount =
+                patients
+                    .where((p) => p.CSF != null && p.CSF!.examDetail.Bx != '없음')
+                    .length;
+            int csfBxTotal = patients
+                .where((p) => p.CSF != null)
+                .fold(
+                  0,
+                  (sum, p) => sum + (int.tryParse(p.CSF!.examDetail.Bx) ?? 0),
+                );
+
+            int csfPolypCount =
+                patients
+                    .where(
+                      (p) =>
+                          p.CSF != null &&
+                          p.CSF!.examDetail.polypectomy != '없음',
+                    )
+                    .length;
+            int csfPolypTotal = patients
+                .where((p) => p.CSF != null)
+                .fold(
+                  0,
+                  (sum, p) =>
+                      sum + (int.tryParse(p.CSF!.examDetail.polypectomy) ?? 0),
+                );
+
+            String formatCount(int count, int total) {
+              if (count == 0) return '0';
+              return '$count ($total)';
+            }
+
+            List<List<String>> table1Data = [
+              ['', '검진', '외래', '총합수'],
+              [
+                '위내시경',
+                gsfGumjin.toString(),
+                gsfNonGumjin.toString(),
+                (gsfGumjin + gsfNonGumjin).toString(),
+              ],
+              [
+                '대장내시경',
+                csfGumjin.toString(),
+                csfNonGumjin.toString(),
+                (csfGumjin + csfNonGumjin).toString(),
+              ],
+              ['S상결장경', '0', sigCount.toString(), sigCount.toString()],
+              [
+                '총합수',
+                (gsfGumjin + csfGumjin).toString(),
+                (gsfNonGumjin + csfNonGumjin + sigCount).toString(),
+                (gsfGumjin + gsfNonGumjin + csfGumjin + csfNonGumjin + sigCount)
+                    .toString(),
+              ],
+            ];
+
+            List<List<String>> table2Data = [
+              ['', 'Bx', '절제술', 'CLO'],
+              [
+                '위내시경',
+                formatCount(gsfBxCount, gsfBxTotal),
+                formatCount(gsfPolypCount, gsfPolypTotal),
+                patients
+                    .where(
+                      (p) => p.GSF != null && p.GSF!.examDetail.CLO == true,
+                    )
+                    .length
+                    .toString(),
+              ],
+              [
+                '대장내시경',
+                formatCount(csfBxCount, csfBxTotal),
+                formatCount(csfPolypCount, csfPolypTotal),
+                '',
+              ],
+            ];
+
+            // Function to select a new date range and refresh the dialog
+            Future<void> selectNewDateRange() async {
+              final DateTimeRange? picked = await showDateRangePicker(
+                context: context,
+                firstDate: DateTime(2000),
+                lastDate: DateTime(2101),
+                initialDateRange: DateTimeRange(
+                  start: startDate!,
+                  end: endDate!,
+                ),
+                saveText: '선택',
+                builder: (BuildContext context, Widget? child) {
+                  return Theme(
+                    data: ThemeData.light().copyWith(
+                      colorScheme: ColorScheme.light(
+                        primary: oceanBlue,
+                        onPrimary: Colors.white,
+                        surface: Colors.white,
+                        onSurface: Colors.black,
+                      ),
+                    ),
+                    child: child!,
+                  );
+                },
+              );
+
+              if (picked != null) {
+                // Update the state variables
+                startDate = picked.start;
+                endDate = picked.end;
+
+                // Query new patients data based on the updated date range
+                List<Patient> newPatients = await queryPatientsByDate(
+                  startDate!,
+                  endDate!,
+                );
+
+                // Update the dialog with new data
+                setState(() {
+                  patients = newPatients;
+                });
+              }
+            }
+
+            return Dialog(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Container(
+                width: MediaQuery.of(context).size.width * 0.9,
+                padding: const EdgeInsets.all(12.0),
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Header row with title and close button
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            '검사 요약',
+                            style: TextStyle(
+                              fontSize: 24,
+                              fontWeight: FontWeight.bold,
+                              color: oceanBlue,
+                            ),
+                          ),
+                          // Close button in the upper right corner
+                          IconButton(
+                            icon: Icon(Icons.close, color: Colors.grey[700]),
+                            onPressed: () {
+                              // Update parent state before closing dialog
+                              this.setState(() {
+                                // startDate and endDate are already updated in the dialog
+                                // so we're just triggering a rebuild of the parent widget
+                              });
+                              Navigator.of(context).pop();
+                            },
+                            padding: EdgeInsets.zero,
+                            constraints: BoxConstraints(),
+                          ),
+                        ],
+                      ),
+                      SizedBox(height: 8),
+                      // Date range text with calendar icon
+                      Row(
+                        children: [
+                          Text(
+                            dateRangeText,
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: Colors.grey[600],
+                            ),
+                          ),
+                          SizedBox(width: 8),
+                          // Calendar icon button to change date range
+                          InkWell(
+                            onTap: selectNewDateRange,
+                            child: Icon(
+                              Icons.calendar_today,
+                              size: 20,
+                              color: oceanBlue,
+                            ),
+                          ),
+                        ],
+                      ),
+                      SizedBox(height: 24),
+                      _buildSummaryTable(table1Data),
+                      SizedBox(height: 24),
+                      _buildSummaryTable(table2Data),
+                      SizedBox(height: 24),
+                      Text(
+                        '환자 목록',
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                          color: oceanBlue,
+                        ),
+                      ),
+                      SizedBox(height: 16),
+                      ListView.builder(
+                        shrinkWrap: true,
+                        physics: NeverScrollableScrollPhysics(),
+                        itemCount: patients.length,
+                        itemBuilder: (context, index) {
+                          return PatientListTile(
+                            patient: patients[index],
+                            tabController: widget.tabController,
+                          );
+                        },
+                      ),
+                      SizedBox(height: 24),
+                      Center(
+                        child: ElevatedButton(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: oceanBlue,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(30),
+                            ),
+                            padding: EdgeInsets.symmetric(
+                              horizontal: 32,
+                              vertical: 16,
+                            ),
+                          ),
+                          onPressed: () {
+                            // Update parent state before closing dialog
+                            this.setState(() {
+                              // startDate and endDate are already updated in the dialog
+                              // so we're just triggering a rebuild of the parent widget
+                            });
+                            Navigator.of(context).pop();
+                          },
+                          child: Text(
+                            '닫기',
+                            style: TextStyle(fontSize: 16, color: Colors.white),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          },
         );
       },
     );
@@ -2663,6 +2819,88 @@ class _StatisticsPageState extends State<StatisticsPage>
     List<int> selectedYears = [];
     String selectedType = '전체'; // '전체', '외래', '검진'
     bool isCumulative = false; // 누적 표시 여부를 추적하는 새 변수
+
+    // 이전 달 데이터 확인 및 업데이트
+    try {
+      final now = DateTime.now();
+      final lastMonth = DateTime(now.year, now.month - 1, 1);
+      final lastMonthEnd = DateTime(now.year, now.month, 0);
+
+      // 이전 달의 statistics 데이터 확인
+      DocumentSnapshot doc =
+          await FirebaseFirestore.instance
+              .collection('statistics')
+              .doc(lastMonth.year.toString())
+              .get();
+
+      // 한자리 수 달을 두자리로 표시 (예: 3월 -> '03')
+      String lastMonthKey = lastMonth.month.toString().padLeft(2, '0');
+      bool needToUpdate = false;
+      Map<String, dynamic> lastMonthData = {};
+
+      if (doc.exists) {
+        Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
+        if (!data.containsKey(lastMonthKey)) {
+          needToUpdate = true;
+        }
+      } else {
+        needToUpdate = true;
+      }
+
+      if (needToUpdate) {
+        // 이전 달의 환자 데이터 조회
+        QuerySnapshot querySnapshot =
+            await FirebaseFirestore.instance
+                .collection('patients')
+                .where(
+                  'examDate',
+                  isGreaterThanOrEqualTo: DateFormat(
+                    'yyyy-MM-dd',
+                  ).format(lastMonth),
+                )
+                .where(
+                  'examDate',
+                  isLessThanOrEqualTo: DateFormat(
+                    'yyyy-MM-dd',
+                  ).format(lastMonthEnd),
+                )
+                .get();
+
+        int outpatientCount = 0;
+        int screeningCount = 0;
+
+        for (var doc in querySnapshot.docs) {
+          Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
+
+          // GSF 데이터 확인
+          if (data['GSF'] != null) {
+            if (data['GSF']['gumjinOrNot'] == '외래') outpatientCount++;
+            if (data['GSF']['gumjinOrNot'] == '검진') screeningCount++;
+          }
+
+          // CSF 데이터 확인
+          if (data['CSF'] != null) {
+            if (data['CSF']['gumjinOrNot'] == '외래') outpatientCount++;
+            if (data['CSF']['gumjinOrNot'] == '검진') screeningCount++;
+          }
+
+          // sig 데이터 확인 (외래만 포함)
+          if (data['sig'] != null) {
+            if (data['sig']['gumjinOrNot'] == '외래') outpatientCount++;
+          }
+        }
+
+        lastMonthData = {'외래': outpatientCount, '검진': screeningCount};
+
+        // Firebase에 이전 달 데이터 업데이트
+        await FirebaseFirestore.instance
+            .collection('statistics')
+            .doc(lastMonth.year.toString())
+            .set({lastMonthKey: lastMonthData}, SetOptions(merge: true));
+      }
+    } catch (e) {
+      print('Error updating last month statistics: $e');
+    }
 
     showDialog(
       context: context,
@@ -2980,6 +3218,12 @@ class _StatisticsPageState extends State<StatisticsPage>
               if (data['CSF']['gumjinOrNot'] == '외래') outpatientCount++;
               if (data['CSF']['gumjinOrNot'] == '검진') screeningCount++;
             }
+
+            // sig 데이터 확인
+            if (data['sig'] != null) {
+              // S상 결장경은 일반적으로 외래에 포함됨
+              outpatientCount++;
+            }
           }
 
           yearlyData[year]!['외래']![currentMonth - 1] = outpatientCount;
@@ -3040,7 +3284,9 @@ class _StatisticsPageState extends State<StatisticsPage>
                           child: YearComparisonChart(
                             yearlyData: yearlyData,
                             selectedType: type,
-                            isCumulative: isCumulative, // 새 파라미터 전달
+                            isCumulative: isCumulative,
+                            currentYear: currentYear,
+                            currentMonth: currentMonth,
                           ),
                         ),
                       ),
@@ -3284,7 +3530,14 @@ class _StatisticsPageState extends State<StatisticsPage>
                         vertical: 16,
                       ),
                     ),
-                    onPressed: () => Navigator.of(context).pop(),
+                    onPressed: () {
+                      // Update parent state before closing dialog
+                      this.setState(() {
+                        // startDate and endDate are already updated in the dialog
+                        // so we're just triggering a rebuild of the parent widget
+                      });
+                      Navigator.of(context).pop();
+                    },
                     child: Text(
                       '닫기',
                       style: TextStyle(fontSize: 16, color: Colors.white),
@@ -3613,7 +3866,14 @@ class _StatisticsPageState extends State<StatisticsPage>
                         vertical: 16,
                       ),
                     ),
-                    onPressed: () => Navigator.of(context).pop(),
+                    onPressed: () {
+                      // Update parent state before closing dialog
+                      this.setState(() {
+                        // startDate and endDate are already updated in the dialog
+                        // so we're just triggering a rebuild of the parent widget
+                      });
+                      Navigator.of(context).pop();
+                    },
                     child: Text(
                       '닫기',
                       style: TextStyle(fontSize: 16, color: Colors.white),
@@ -3780,7 +4040,14 @@ class _StatisticsPageState extends State<StatisticsPage>
                         vertical: 16,
                       ),
                     ),
-                    onPressed: () => Navigator.of(context).pop(),
+                    onPressed: () {
+                      // Update parent state before closing dialog
+                      this.setState(() {
+                        // startDate and endDate are already updated in the dialog
+                        // so we're just triggering a rebuild of the parent widget
+                      });
+                      Navigator.of(context).pop();
+                    },
                     child: Text(
                       '취소',
                       style: TextStyle(fontSize: 16, color: Colors.white),
@@ -4407,16 +4674,25 @@ class YearComparisonChart extends StatelessWidget {
   final Map<int, Map<String, List<int>>> yearlyData;
   final String selectedType;
   final bool isCumulative;
+  final int? currentYear;
+  final int? currentMonth;
 
   const YearComparisonChart({
     Key? key,
     required this.yearlyData,
     required this.selectedType,
     required this.isCumulative,
+    this.currentYear,
+    this.currentMonth,
   }) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
+    // Get current date if not provided
+    final now = DateTime.now();
+    final year = currentYear ?? now.year;
+    final month = currentMonth ?? now.month;
+
     return Column(
       children: [
         Expanded(
@@ -4464,7 +4740,7 @@ class YearComparisonChart extends StatelessWidget {
                 ),
               ),
               borderData: FlBorderData(show: true),
-              lineBarsData: _createLineBarsData(),
+              lineBarsData: _createLineBarsData(year, month),
             ),
           ),
         ),
@@ -4476,6 +4752,106 @@ class YearComparisonChart extends StatelessWidget {
         ),
       ],
     );
+  }
+
+  List<LineChartBarData> _createLineBarsData(
+    int currentYear,
+    int currentMonth,
+  ) {
+    List<LineChartBarData> bars = [];
+    List<Color> colors = [
+      Colors.blue,
+      Colors.red,
+      Colors.green,
+      Colors.orange,
+      Colors.purple,
+    ];
+
+    int colorIndex = 0;
+    yearlyData.forEach((year, typeData) {
+      if (selectedType == '전체') {
+        List<int> totalData = List.generate(12, (index) {
+          // 현재 연도이고 현재 월 이후의 데이터는 0으로 설정
+          if (year == currentYear && index >= currentMonth) {
+            return 0;
+          }
+          if (isCumulative) {
+            // 누적 데이터 계산
+            int sum = 0;
+            for (int i = 0; i <= index; i++) {
+              sum += typeData['외래']![i] + typeData['검진']![i];
+            }
+            return sum;
+          } else {
+            return typeData['외래']![index] + typeData['검진']![index];
+          }
+        });
+
+        bars.add(
+          _createLineChartBarData(
+            year,
+            totalData,
+            colors[colorIndex % colors.length],
+            '전체',
+          ),
+        );
+      } else if (selectedType == '외래') {
+        List<int> outpatientData = List.generate(12, (index) {
+          // 현재 연도이고 현재 월 이후의 데이터는 0으로 설정
+          if (year == currentYear && index >= currentMonth) {
+            return 0;
+          }
+          if (isCumulative) {
+            // 누적 데이터 계산
+            int sum = 0;
+            for (int i = 0; i <= index; i++) {
+              sum += typeData['외래']![i];
+            }
+            return sum;
+          } else {
+            return typeData['외래']![index];
+          }
+        });
+
+        bars.add(
+          _createLineChartBarData(
+            year,
+            outpatientData,
+            colors[colorIndex % colors.length],
+            '외래',
+          ),
+        );
+      } else if (selectedType == '검진') {
+        List<int> screeningData = List.generate(12, (index) {
+          // 현재 연도이고 현재 월 이후의 데이터는 0으로 설정
+          if (year == currentYear && index >= currentMonth) {
+            return 0;
+          }
+          if (isCumulative) {
+            // 누적 데이터 계산
+            int sum = 0;
+            for (int i = 0; i <= index; i++) {
+              sum += typeData['검진']![i];
+            }
+            return sum;
+          } else {
+            return typeData['검진']![index];
+          }
+        });
+
+        bars.add(
+          _createLineChartBarData(
+            year,
+            screeningData,
+            colors[colorIndex % colors.length],
+            '검진',
+          ),
+        );
+      }
+      colorIndex += 1;
+    });
+
+    return bars;
   }
 
   List<Widget> _buildLegendItems() {
@@ -4540,91 +4916,6 @@ class YearComparisonChart extends StatelessWidget {
     });
 
     return legendItems;
-  }
-
-  List<LineChartBarData> _createLineBarsData() {
-    List<LineChartBarData> bars = [];
-    List<Color> colors = [
-      Colors.blue,
-      Colors.red,
-      Colors.green,
-      Colors.orange,
-      Colors.purple,
-    ];
-
-    int colorIndex = 0;
-    yearlyData.forEach((year, typeData) {
-      if (selectedType == '전체') {
-        List<int> totalData = List.generate(12, (index) {
-          if (isCumulative) {
-            // 누적 데이터 계산
-            int sum = 0;
-            for (int i = 0; i <= index; i++) {
-              sum += typeData['외래']![i] + typeData['검진']![i];
-            }
-            return sum;
-          } else {
-            return typeData['외래']![index] + typeData['검진']![index];
-          }
-        });
-
-        bars.add(
-          _createLineChartBarData(
-            year,
-            totalData,
-            colors[colorIndex % colors.length],
-            '전체',
-          ),
-        );
-      } else if (selectedType == '외래') {
-        List<int> outpatientData = List.generate(12, (index) {
-          if (isCumulative) {
-            // 누적 데이터 계산
-            int sum = 0;
-            for (int i = 0; i <= index; i++) {
-              sum += typeData['외래']![i];
-            }
-            return sum;
-          } else {
-            return typeData['외래']![index];
-          }
-        });
-
-        bars.add(
-          _createLineChartBarData(
-            year,
-            outpatientData,
-            colors[colorIndex % colors.length],
-            '외래',
-          ),
-        );
-      } else if (selectedType == '검진') {
-        List<int> screeningData = List.generate(12, (index) {
-          if (isCumulative) {
-            // 누적 데이터 계산
-            int sum = 0;
-            for (int i = 0; i <= index; i++) {
-              sum += typeData['검진']![i];
-            }
-            return sum;
-          } else {
-            return typeData['검진']![index];
-          }
-        });
-
-        bars.add(
-          _createLineChartBarData(
-            year,
-            screeningData,
-            colors[colorIndex % colors.length],
-            '검진',
-          ),
-        );
-      }
-      colorIndex += 1;
-    });
-
-    return bars;
   }
 
   LineChartBarData _createLineChartBarData(

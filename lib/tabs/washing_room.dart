@@ -7,6 +7,7 @@ import '../data_class/patient_exam.dart';
 import 'package:provider/provider.dart';
 import '../provider/settings_provider.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:uuid/uuid.dart';
 
 class WashingRoom extends StatefulWidget {
   @override
@@ -1437,8 +1438,9 @@ class _WashingRoomState extends State<WashingRoom> with WidgetsBindingObserver {
     final washingMachine = selectedWashingMachine;
     final DateTime now = DateTime.now();
     final String washingTime = DateFormat('HH:mm').format(now);
-    final String uniqueDocName =
-        '기기세척_${DateFormat('yyyy-MM-dd HH:mm:ss').format(now)}';
+    final String uid = Uuid().v4();
+    final String documentName =
+        '기기세척_${DateFormat('yyyy-MM-dd HH:mm:ss').format(now)}_${uid}';
 
     final ExaminationDetails examDetail = ExaminationDetails(
       Bx: '없음',
@@ -1460,7 +1462,7 @@ class _WashingRoomState extends State<WashingRoom> with WidgetsBindingObserver {
     );
 
     final Patient patient = Patient(
-      uniqueDocName: uniqueDocName,
+      uniqueDocName: uid,
       id: '',
       name: '기기세척',
       gender: '',
@@ -1478,9 +1480,7 @@ class _WashingRoomState extends State<WashingRoom> with WidgetsBindingObserver {
       await FirebaseFirestore.instance
           .runTransaction((transaction) async {
             transaction.set(
-              FirebaseFirestore.instance
-                  .collection('patients')
-                  .doc(uniqueDocName),
+              FirebaseFirestore.instance.collection('patients').doc(uid),
               {
                 ...patient.toMap(),
                 'logs': [
@@ -1505,7 +1505,7 @@ class _WashingRoomState extends State<WashingRoom> with WidgetsBindingObserver {
                   'scope': GSFmachine.containsKey(selectedScope) ? '위' : '대장',
                   'scopeName': selectedScope,
                   'washingTime': washingTime,
-                  'uniqueDocName': uniqueDocName,
+                  'uniqueDocName': uid,
                   'examType':
                       GSFmachine.containsKey(selectedScope) ? 'GSF' : 'CSF',
                   'washingMachine': washingMachine,
@@ -1524,20 +1524,12 @@ class _WashingRoomState extends State<WashingRoom> with WidgetsBindingObserver {
             ).showSnackBar(SnackBar(content: Text('기기세척 데이터가 성공적으로 저장되었습니다!')));
           });
     } catch (e) {
-      if (e is TimeoutException) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('네트워크 지연으로 저장에 실패했습니다. 다시 시도해 주세요.')),
-        );
-      } else {
-        print('Error saving device cleaning data: $e');
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('기기세척 데이터 저장 중 오류가 발생했습니다: ${e.toString()}')),
-        );
-      }
-    } finally {
       if (mounted) {
         setState(() => _isSaving = false);
       }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('저장 중 오류가 발생했습니다: ${e.toString()}')),
+      );
     }
   }
 

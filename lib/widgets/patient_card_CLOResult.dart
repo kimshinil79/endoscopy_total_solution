@@ -36,90 +36,202 @@ class _PatientCardState extends State<PatientCard> {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      elevation: 4,
-      margin: EdgeInsets.symmetric(vertical: 8, horizontal: 0),
-      child: Padding(
-        padding: EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            GestureDetector(
-              onTap: () => widget.onPatientSelect(widget.patient),
-              child: Container(
-                padding: EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  border: Border.all(color: Colors.grey),
-                  borderRadius: BorderRadius.circular(8),
+    return Container(
+      margin: EdgeInsets.symmetric(vertical: 8, horizontal: 8),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.withOpacity(0.1),
+            spreadRadius: 1,
+            blurRadius: 3,
+            offset: Offset(0, 1),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // 환자 정보 섹션
+          GestureDetector(
+            onTap: () => widget.onPatientSelect(widget.patient),
+            child: Container(
+              padding: EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.blue[50],
+                borderRadius: BorderRadius.only(
+                  topLeft: Radius.circular(16),
+                  topRight: Radius.circular(16),
                 ),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text(
-                                  '${_truncateName(widget.patient.name)} (${widget.patient.id})',
-                                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)
+                border: Border.all(color: Colors.blue[100]!),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              '${_truncateName(widget.patient.name)} (${widget.patient.id})',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 18,
+                                color: Colors.blue[900],
                               ),
-                              Icon(Icons.edit, size: 20, color: Colors.grey),
-                            ],
+                            ),
+                            Container(
+                              padding: EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 4,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.blue[100],
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Text(
+                                '${widget.patient.gender}/${widget.patient.age}세',
+                                style: TextStyle(
+                                  color: Colors.blue[800],
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        SizedBox(height: 4),
+                        Text(
+                          DateFormat(
+                            'yy년MM월dd일',
+                          ).format(widget.patient.examDate),
+                          style: TextStyle(
+                            color: Colors.blue[600],
+                            fontSize: 14,
                           ),
-                          Text(
-                              '${widget.patient.gender}/${widget.patient.age}세 ${DateFormat('yy년MM월dd일').format(widget.patient.examDate)}',
-                              style: TextStyle(color: Colors.grey[600])
-                          ),
-                        ],
-                      ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          // CLO 결과 선택 섹션
+          Container(
+            padding: EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.only(
+                bottomLeft: Radius.circular(16),
+                bottomRight: Radius.circular(16),
+              ),
+            ),
+            child: Column(
+              children: [
+                Text(
+                  'CLO 결과 선택',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.grey[800],
+                  ),
+                ),
+                SizedBox(height: 16),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: [
+                    _buildResultButton(
+                      '양성',
+                      '+',
+                      Colors.red[400]!,
+                      Icons.add_circle_outline,
+                    ),
+                    _buildResultButton(
+                      '음성',
+                      '-',
+                      Colors.green[400]!,
+                      Icons.remove_circle_outline,
                     ),
                   ],
                 ),
-              ),
-            ),
-            SizedBox(height: 12),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              children: [
-                ElevatedButton(
-                  child: Text('양성'),
-                  onPressed: () => setState(() => selectedResult = '+'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: selectedResult == '+' ? Colors.redAccent : Colors.grey[300],
-                    foregroundColor: selectedResult == '+' ? Colors.white : Colors.black,
-                    shape: CircleBorder(),
-                  ),
-                ),
-                ElevatedButton(
-                  child: Text('음성'),
-                  onPressed: () => setState(() => selectedResult = '-'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: selectedResult == '-' ? Colors.green : Colors.grey[300],
-                    foregroundColor: selectedResult == '-' ? Colors.white : Colors.black,
-                    shape: CircleBorder(),
+                SizedBox(height: 16),
+                Container(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed:
+                        selectedResult.isEmpty
+                            ? null
+                            : () {
+                              widget.onSave(widget.patient, selectedResult, () {
+                                setState(() {
+                                  selectedResult = '';
+                                });
+                              });
+                            },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor:
+                          selectedResult.isEmpty
+                              ? Colors.grey[300]
+                              : Colors.blue[800],
+                      foregroundColor: Colors.white,
+                      padding: EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      elevation: 0,
+                    ),
+                    child: Text(
+                      '저장',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                   ),
                 ),
               ],
             ),
-            SizedBox(height: 12),
-            Center(
-              child: ElevatedButton(
-                child: Text('저장'),
-                onPressed: () {
-                  widget.onSave(widget.patient, selectedResult, () {
-                    setState(() {
-                      selectedResult = '';
-                    });
-                  });
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.white,
-                  foregroundColor: Colors.blueAccent,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                ),
-              ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildResultButton(
+    String label,
+    String value,
+    Color color,
+    IconData icon,
+  ) {
+    bool isSelected = selectedResult == value;
+    return Container(
+      width: 120,
+      child: ElevatedButton(
+        onPressed: () => setState(() => selectedResult = value),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: isSelected ? color : Colors.grey[100],
+          foregroundColor: isSelected ? Colors.white : Colors.grey[600],
+          padding: EdgeInsets.symmetric(vertical: 12),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+            side: BorderSide(
+              color: isSelected ? color : Colors.grey[300]!,
+              width: 1,
+            ),
+          ),
+          elevation: 0,
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, size: 20),
+            SizedBox(width: 8),
+            Text(
+              label,
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
             ),
           ],
         ),

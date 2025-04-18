@@ -54,6 +54,7 @@ dependencies:
   syncfusion_officechart: ^26.1.39
   connectivity_plus: ^6.1.3
   fl_chart: ^0.70.2
+  uuid: ^4.3.3
 
 dev_dependencies:
   flutter_test:

@@ -14,6 +14,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'dart:collection';
 import '../widgets/patient_card_CLOResult.dart';
 //import '../widgets/text_form_examination_room.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class ExaminationRoom extends StatefulWidget {
   @override
@@ -117,6 +118,8 @@ class _ExaminationRoomState extends State<ExaminationRoom>
 
   PatientProvider? _patientProvider;
   late SettingsProvider _settingsProvider;
+
+  bool _isAuthorizedUser = false;
 
   String getRoomDisplayName(String room) {
     switch (room) {
@@ -319,86 +322,223 @@ class _ExaminationRoomState extends State<ExaminationRoom>
       builder: (BuildContext context) {
         return StatefulBuilder(
           builder: (BuildContext context, StateSetter setState) {
-            return AlertDialog(
-              title: Text(
-                'CLO 결과 미입력자(${patientCount}명)',
-                style: TextStyle(fontWeight: FontWeight.bold),
+            return Dialog(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
               ),
-              content: Container(
-                width: double.maxFinite,
+              elevation: 0,
+              backgroundColor: Colors.transparent,
+              child: Container(
+                padding: EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  shape: BoxShape.rectangle,
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black26,
+                      blurRadius: 10.0,
+                      offset: const Offset(0.0, 10.0),
+                    ),
+                  ],
+                ),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    ElevatedButton(
-                      onPressed: () async {
-                        final DateTimeRange? picked = await showDateRangePicker(
-                          context: context,
-                          firstDate: DateTime(2000),
-                          lastDate: DateTime(2101),
-                          initialDateRange: _dateRange,
-                        );
-                        if (picked != null && picked != _dateRange) {
-                          _dateRange = picked;
-                          List<Patient> newPatients = await _fetchCLOPatients();
-                          setState(() {
-                            patients = newPatients;
-                            patientCount = patients.length;
-                          });
-                        }
-                      },
-                      child: Text(
-                        '${DateFormat('yyyy-MM-dd').format(_dateRange.start)} ~ ${DateFormat('yyyy-MM-dd').format(_dateRange.end)}',
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Row(
+                          children: [
+                            Text(
+                              'CLO 결과 미입력자',
+                              style: TextStyle(
+                                fontSize: 20,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.red[400],
+                              ),
+                            ),
+                            Container(
+                              margin: EdgeInsets.only(left: 8),
+                              padding: EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 4,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.red[50],
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Text(
+                                '$patientCount명',
+                                style: TextStyle(
+                                  color: Colors.red[400],
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        IconButton(
+                          icon: Icon(Icons.close, color: Colors.grey[600]),
+                          onPressed: () => Navigator.of(context).pop(),
+                        ),
+                      ],
+                    ),
+                    SizedBox(height: 16),
+                    Container(
+                      decoration: BoxDecoration(
+                        color: Colors.grey[50],
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.grey[200]!),
                       ),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.white,
-                        foregroundColor: Colors.blue,
+                      child: ListTile(
+                        onTap: () async {
+                          final DateTimeRange? picked =
+                              await showDateRangePicker(
+                                context: context,
+                                firstDate: DateTime(2000),
+                                lastDate: DateTime(2101),
+                                initialDateRange: _dateRange,
+                              );
+                          if (picked != null && picked != _dateRange) {
+                            _dateRange = picked;
+                            List<Patient> newPatients =
+                                await _fetchCLOPatients();
+                            setState(() {
+                              patients = newPatients;
+                              patientCount = patients.length;
+                            });
+                          }
+                        },
+                        leading: Icon(
+                          Icons.calendar_today,
+                          color: Colors.blue[400],
+                        ),
+                        title: Text(
+                          '검색 기간',
+                          style: TextStyle(
+                            color: Colors.grey[600],
+                            fontSize: 14,
+                          ),
+                        ),
+                        subtitle: Text(
+                          '${DateFormat('yyyy-MM-dd').format(_dateRange.start)} ~ ${DateFormat('yyyy-MM-dd').format(_dateRange.end)}',
+                          style: TextStyle(
+                            color: Colors.blue[800],
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        trailing: Icon(
+                          Icons.arrow_forward_ios,
+                          color: Colors.grey[400],
+                          size: 16,
+                        ),
                       ),
                     ),
-                    SizedBox(height: 20),
+                    SizedBox(height: 16),
                     Expanded(
-                      child: ListView.builder(
-                        shrinkWrap: true,
-                        itemCount: patients.length,
-                        itemBuilder: (context, index) {
-                          return PatientCard(
-                            key: ValueKey(patients[index].uniqueDocName),
-                            patient: patients[index],
-                            onSave: (patient, result, resetState) async {
-                              await _saveCLOResult(patient, result);
-                              if (result == '+' || result == '-') {
-                                setState(() {
-                                  patients.removeAt(index);
-                                  patientCount = patients.length;
-                                });
-                              } else {
-                                resetState();
-                              }
-                            },
-                            onPatientSelect: (selectedPatient) {
-                              _patientProvider?.setPatient(selectedPatient);
-                              Navigator.of(context).pop(); // CLO 팝업 닫기
-                            },
-                          );
-                        },
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: Colors.grey[50],
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: Colors.grey[200]!),
+                        ),
+                        child:
+                            patients.isEmpty
+                                ? Center(
+                                  child: Column(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Icon(
+                                        Icons.check_circle_outline,
+                                        color: Colors.green[400],
+                                        size: 48,
+                                      ),
+                                      SizedBox(height: 16),
+                                      Text(
+                                        'CLO 결과 미입력자가 없습니다',
+                                        style: TextStyle(
+                                          color: Colors.grey[600],
+                                          fontSize: 16,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                )
+                                : ListView.builder(
+                                  shrinkWrap: true,
+                                  itemCount: patients.length,
+                                  itemBuilder: (context, index) {
+                                    return Container(
+                                      margin: EdgeInsets.symmetric(
+                                        horizontal: 8,
+                                        vertical: 4,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: Colors.white,
+                                        borderRadius: BorderRadius.circular(12),
+                                        boxShadow: [
+                                          BoxShadow(
+                                            color: Colors.grey.withOpacity(0.1),
+                                            spreadRadius: 1,
+                                            blurRadius: 3,
+                                            offset: Offset(0, 1),
+                                          ),
+                                        ],
+                                      ),
+                                      child: PatientCard(
+                                        key: ValueKey(
+                                          patients[index].uniqueDocName,
+                                        ),
+                                        patient: patients[index],
+                                        onSave: (
+                                          patient,
+                                          result,
+                                          resetState,
+                                        ) async {
+                                          await _saveCLOResult(patient, result);
+                                          if (result == '+' || result == '-') {
+                                            setState(() {
+                                              patients.removeAt(index);
+                                              patientCount = patients.length;
+                                            });
+                                          } else {
+                                            resetState();
+                                          }
+                                        },
+                                        onPatientSelect: (selectedPatient) {
+                                          _patientProvider?.setPatient(
+                                            selectedPatient,
+                                          );
+                                          Navigator.of(context).pop();
+                                        },
+                                      ),
+                                    );
+                                  },
+                                ),
                       ),
+                    ),
+                    SizedBox(height: 16),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        TextButton(
+                          onPressed: () {
+                            Navigator.of(context).pop();
+                          },
+                          child: Text(
+                            '닫기',
+                            style: TextStyle(
+                              color: Colors.grey[600],
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
               ),
-              actions: [
-                TextButton(
-                  onPressed: () {
-                    Navigator.of(context).pop();
-                  },
-                  child: Text(
-                    '닫기',
-                    style: TextStyle(
-                      color: Colors.blue,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ],
             );
           },
         );
@@ -473,8 +613,18 @@ class _ExaminationRoomState extends State<ExaminationRoom>
       _onPatientDataChange();
       _settingsProvider?.loadSettings();
       _patientProvider?.countTodayExam();
+      _checkUserAuthorization();
     });
     _loadPreferences();
+  }
+
+  void _checkUserAuthorization() {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null && user.email == 'alienpro@naver.com') {
+      setState(() {
+        _isAuthorizedUser = true;
+      });
+    }
   }
 
   @override
@@ -770,6 +920,21 @@ class _ExaminationRoomState extends State<ExaminationRoom>
       int totalPatients =
           emptyMachinesPatients.length + filledMachinesPatients.length;
 
+      // 동적 높이 계산
+      double calculateDialogHeight() {
+        double baseHeight = 200.0; // 기본 높이 (헤더, 버튼 등)
+        double patientCardHeight = 120.0; // 각 환자 카드의 높이
+        double maxHeight =
+            MediaQuery.of(context).size.height * 0.95; // 최대 높이 (화면의 85%)
+
+        double calculatedHeight =
+            baseHeight +
+            (emptyMachinesPatients.length * patientCardHeight) +
+            (filledMachinesPatients.length * patientCardHeight);
+
+        return calculatedHeight > maxHeight ? maxHeight : calculatedHeight;
+      }
+
       showDialog(
         context: context,
         builder: (BuildContext context) {
@@ -782,6 +947,7 @@ class _ExaminationRoomState extends State<ExaminationRoom>
                 elevation: 0,
                 backgroundColor: Colors.transparent,
                 child: Container(
+                  height: calculateDialogHeight(),
                   padding: EdgeInsets.all(16),
                   decoration: BoxDecoration(
                     color: Colors.white,
@@ -845,24 +1011,25 @@ class _ExaminationRoomState extends State<ExaminationRoom>
                         child: SingleChildScrollView(
                           child: Column(
                             children: [
-                              GridView.count(
-                                crossAxisCount: 3,
-                                shrinkWrap: true,
-                                physics: NeverScrollableScrollPhysics(),
-                                childAspectRatio: 0.8, // 카드의 가로/세로 비율 조정
-                                children:
-                                    emptyMachinesPatients
-                                        .map(
-                                          (patient) => _buildPatientCard(
-                                            context,
-                                            patient,
-                                            currentDate,
-                                            Colors.blueAccent[100]!,
-                                            true,
-                                          ),
-                                        )
-                                        .toList(),
-                              ),
+                              if (emptyMachinesPatients.isNotEmpty)
+                                GridView.count(
+                                  crossAxisCount: 3,
+                                  shrinkWrap: true,
+                                  physics: NeverScrollableScrollPhysics(),
+                                  childAspectRatio: 0.7,
+                                  children:
+                                      emptyMachinesPatients
+                                          .map(
+                                            (patient) => _buildPatientCard(
+                                              context,
+                                              patient,
+                                              currentDate,
+                                              Colors.blueAccent[100]!,
+                                              true,
+                                            ),
+                                          )
+                                          .toList(),
+                                ),
                               if (emptyMachinesPatients.isNotEmpty &&
                                   filledMachinesPatients.isNotEmpty)
                                 Divider(),
@@ -921,10 +1088,7 @@ class _ExaminationRoomState extends State<ExaminationRoom>
     bool isEmptyMachine,
   ) {
     if (isEmptyMachine) {
-      String truncatedName = _truncateName(
-        patient.name,
-        4,
-      ); // maxLength 파라미터는 더 이상 사용되지 않지만 호환성을 위해 유지
+      String truncatedName = _truncateName(patient.name, 4);
       String doctorInfo =
           patient.doctor != null && patient.doctor != '의사'
               ? 'by ${patient.doctor}'
@@ -956,7 +1120,10 @@ class _ExaminationRoomState extends State<ExaminationRoom>
               children: [
                 Expanded(
                   child: Padding(
-                    padding: const EdgeInsets.all(8.0),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8.0,
+                      vertical: 4.0,
+                    ),
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
@@ -964,7 +1131,7 @@ class _ExaminationRoomState extends State<ExaminationRoom>
                           truncatedName,
                           style: TextStyle(
                             fontWeight: FontWeight.bold,
-                            fontSize: 18,
+                            fontSize: 16,
                             color: Colors.blue[700],
                           ),
                           overflow: TextOverflow.ellipsis,
@@ -973,24 +1140,27 @@ class _ExaminationRoomState extends State<ExaminationRoom>
                         Text(
                           patient.id,
                           style: TextStyle(
-                            fontSize: 13,
+                            fontSize: 12,
                             color: Colors.grey[600],
                           ),
                         ),
-                        SizedBox(height: 2),
+                        SizedBox(height: 1),
                         Text(
                           '${patient.gender}/${patient.age}',
                           style: TextStyle(
-                            fontSize: 15,
+                            fontSize: 14,
                             color: Colors.grey[700],
                           ),
                         ),
                         if (doctorInfo.isNotEmpty)
-                          Text(
-                            doctorInfo,
-                            style: TextStyle(
-                              fontSize: 13,
-                              color: Colors.blue[300],
+                          Padding(
+                            padding: EdgeInsets.only(top: 1),
+                            child: Text(
+                              doctorInfo,
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.blue[300],
+                              ),
                             ),
                           ),
                       ],
@@ -1006,16 +1176,33 @@ class _ExaminationRoomState extends State<ExaminationRoom>
                       ),
                     ),
                   ),
-                  child: IconButton(
-                    icon: Icon(
-                      Icons.delete_outline,
-                      color: Colors.red[300],
-                      size: 20,
-                    ),
-                    onPressed:
-                        () => _showDeleteConfirmation(context, patient, date),
-                    padding: EdgeInsets.zero,
-                    constraints: BoxConstraints(),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      IconButton(
+                        icon: Icon(
+                          Icons.edit_outlined,
+                          color: Colors.blue[600],
+                          size: 18,
+                        ),
+                        onPressed:
+                            () => _showEditPatientPopup(context, patient, date),
+                        padding: EdgeInsets.only(right: -2),
+                        constraints: BoxConstraints(),
+                      ),
+                      IconButton(
+                        icon: Icon(
+                          Icons.delete_outline,
+                          color: Colors.red[300],
+                          size: 18,
+                        ),
+                        onPressed:
+                            () =>
+                                _showDeleteConfirmation(context, patient, date),
+                        padding: EdgeInsets.only(left: -2),
+                        constraints: BoxConstraints(),
+                      ),
+                    ],
                   ),
                 ),
               ],
@@ -1102,22 +1289,55 @@ class _ExaminationRoomState extends State<ExaminationRoom>
                           ],
                         ),
                       ),
-                      IconButton(
-                        icon: Icon(
-                          Icons.delete_outline,
-                          color: Colors.red[300],
-                        ),
-                        onPressed:
-                            () =>
-                                _showDeleteConfirmation(context, patient, date),
-                      ),
                     ],
                   ),
                   if (doctorInfo.isNotEmpty) ...[
                     SizedBox(height: 4),
-                    Text(
-                      doctorInfo,
-                      style: TextStyle(color: Colors.blue[300], fontSize: 13),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          doctorInfo,
+                          style: TextStyle(
+                            color: Colors.blue[300],
+                            fontSize: 13,
+                          ),
+                        ),
+                        Row(
+                          children: [
+                            IconButton(
+                              icon: Icon(
+                                Icons.edit_outlined,
+                                color: Colors.blue[600],
+                                size: 18,
+                              ),
+                              onPressed:
+                                  () => _showEditPatientPopup(
+                                    context,
+                                    patient,
+                                    date,
+                                  ),
+                              padding: EdgeInsets.zero,
+                              constraints: BoxConstraints(),
+                            ),
+                            IconButton(
+                              icon: Icon(
+                                Icons.delete_outline,
+                                color: Colors.red[300],
+                                size: 18,
+                              ),
+                              onPressed:
+                                  () => _showDeleteConfirmation(
+                                    context,
+                                    patient,
+                                    date,
+                                  ),
+                              padding: EdgeInsets.zero,
+                              constraints: BoxConstraints(),
+                            ),
+                          ],
+                        ),
+                      ],
                     ),
                   ],
                   SizedBox(height: 8),
@@ -1139,31 +1359,60 @@ class _ExaminationRoomState extends State<ExaminationRoom>
   }
 
   void _handleCardTap(BuildContext context, Patient patient) {
-    _loadPreferences().then((prefs) {
-      if (!context.mounted) return;
+    print('Handling card tap for patient: ${patient.name}');
+    print('Patient provider is null: ${_patientProvider == null}');
 
-      if (patient.Room == null ||
-          patient.Room == '검사실' ||
-          patient.doctor == null ||
-          patient.doctor == '의사') {
-        patient.Room = prefs['room'] ?? '검사실';
-        patient.doctor = prefs['doctor'] ?? '의사';
-      }
+    _loadPreferences()
+        .then((prefs) {
+          if (!context.mounted) {
+            print('Context is not mounted');
+            return;
+          }
 
-      if (!context.mounted) return;
+          if (patient.Room == null ||
+              patient.Room == '검사실' ||
+              patient.doctor == null ||
+              patient.doctor == '의사') {
+            patient.Room = prefs['room'] ?? '검사실';
+            patient.doctor = prefs['doctor'] ?? '의사';
+          }
 
-      _patientProvider?.setPatient(patient);
+          if (!context.mounted) {
+            print('Context is not mounted after preferences');
+            return;
+          }
 
-      if (context.mounted) {
-        (context as StatefulElement).markNeedsBuild();
-        selectedRoom = patient.Room ?? '검사실';
-        selectedDoctor = patient.doctor ?? '의사';
-      }
+          if (_patientProvider == null) {
+            print('Patient provider is null, cannot set patient');
+            return;
+          }
 
-      if (context.mounted) {
-        Navigator.of(context).pop();
-      }
-    });
+          try {
+            _patientProvider!.setPatient(patient);
+            print('Patient set successfully');
+          } catch (e) {
+            print('Error setting patient: $e');
+          }
+
+          if (context.mounted) {
+            try {
+              setState(() {
+                selectedRoom = patient.Room ?? '검사실';
+                selectedDoctor = patient.doctor ?? '의사';
+              });
+              print('UI updated successfully');
+            } catch (e) {
+              print('Error updating UI: $e');
+            }
+          }
+
+          if (context.mounted) {
+            Navigator.of(context).pop();
+          }
+        })
+        .catchError((error) {
+          print('Error in _handleCardTap: $error');
+        });
   }
 
   void _showDeleteConfirmation(
@@ -1174,29 +1423,132 @@ class _ExaminationRoomState extends State<ExaminationRoom>
     showDialog(
       context: context,
       builder: (BuildContext context) {
-        return AlertDialog(
-          title: Text('${patient.name}님을 삭제하시겠습니까?'),
-          actions: <Widget>[
-            TextButton(
-              onPressed: () {
-                Navigator.of(context).pop();
-              },
-              child: Text('취소'),
+        return Dialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          elevation: 0,
+          backgroundColor: Colors.transparent,
+          child: Container(
+            padding: EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              shape: BoxShape.rectangle,
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black26,
+                  blurRadius: 10.0,
+                  offset: const Offset(0.0, 10.0),
+                ),
+              ],
             ),
-            TextButton(
-              onPressed: () async {
-                await FirebaseFirestore.instance
-                    .collection('patients')
-                    .doc(patient.uniqueDocName)
-                    .delete();
-                Navigator.of(context).pop();
-                Navigator.of(context).pop();
-                showExamPopup(context, date);
-                countTodayExam();
-              },
-              child: Text('삭제'),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  padding: EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.red[50],
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    Icons.warning_rounded,
+                    color: Colors.red[400],
+                    size: 32,
+                  ),
+                ),
+                SizedBox(height: 16),
+                Text(
+                  '환자 삭제',
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.red[400],
+                  ),
+                ),
+                SizedBox(height: 8),
+                Text(
+                  '${patient.name} (${patient.id})',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.grey[800],
+                  ),
+                ),
+                SizedBox(height: 8),
+                Text(
+                  '${patient.gender}/${patient.age}세',
+                  style: TextStyle(fontSize: 16, color: Colors.grey[600]),
+                ),
+                SizedBox(height: 16),
+                Text(
+                  '정말 삭제하시겠습니까?',
+                  style: TextStyle(fontSize: 16, color: Colors.grey[700]),
+                ),
+                SizedBox(height: 24),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: [
+                    TextButton(
+                      onPressed: () {
+                        Navigator.of(context).pop();
+                      },
+                      style: TextButton.styleFrom(
+                        padding: EdgeInsets.symmetric(
+                          horizontal: 24,
+                          vertical: 12,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          side: BorderSide(color: Colors.grey[300]!),
+                        ),
+                      ),
+                      child: Text(
+                        '취소',
+                        style: TextStyle(
+                          color: Colors.grey[600],
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                    ElevatedButton(
+                      onPressed: () async {
+                        await FirebaseFirestore.instance
+                            .collection('patients')
+                            .doc(patient.uniqueDocName)
+                            .delete();
+                        Navigator.of(context).pop();
+                        Navigator.of(context).pop();
+                        showExamPopup(context, date);
+                        countTodayExam();
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.red[400],
+                        foregroundColor: Colors.white,
+                        padding: EdgeInsets.symmetric(
+                          horizontal: 24,
+                          vertical: 12,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        elevation: 0,
+                      ),
+                      child: Text(
+                        '삭제',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
             ),
-          ],
+          ),
         );
       },
     );
@@ -1285,6 +1637,10 @@ class _ExaminationRoomState extends State<ExaminationRoom>
         final Map<String, dynamic> currentData =
             docSnapshot.data() as Map<String, dynamic>;
 
+        // Update document name with new patient name
+        final dateFormat = DateFormat('yyyyMMddHHmmss');
+        final formattedDate = dateFormat.format(selectedDate);
+
         // Helper function to merge scopes
         Map<String, Map<String, String>> mergeScopes(
           Map<String, Map<String, String>> newScopes,
@@ -1305,7 +1661,7 @@ class _ExaminationRoomState extends State<ExaminationRoom>
                   value['washingMachine'] ?? '';
               mergedScopes[key]!['washingTime'] = value['washingTime'] ?? '';
               mergedScopes[key]!['washingCharger'] =
-                  value['washingCharger'] ?? ''; // 추가된 부분
+                  value['washingCharger'] ?? '';
             }
           });
           return mergedScopes;
@@ -1313,107 +1669,65 @@ class _ExaminationRoomState extends State<ExaminationRoom>
 
         // Update GSF data
         if (endoscopyChecked) {
-          final Map<String, dynamic> currentGSF = currentData['GSF'] ?? {};
-          final Map<String, dynamic> currentGSFScopes =
-              currentGSF['scopes'] ?? {};
-
-          Map<String, Map<String, String>> mergedScopes = mergeScopes(
-            selectedGsScopes,
-            currentGSFScopes,
-          );
-
-          Endoscopy gsf = Endoscopy(
-            gumjinOrNot: gsfGumjinOrNot,
-            sleepOrNot: gsfSleepOrNot,
-            scopes: mergedScopes,
-            examDetail: gsfDetails,
-            cancel: gsfCancelled,
-          );
-
-          currentData['GSF'] = gsf.toMap();
-        } else {
-          currentData['GSF'] = null;
+          currentData['GSF'] = {
+            'gumjinOrNot': gsfGumjinOrNot,
+            'sleepOrNot': gsfSleepOrNot,
+            'scopes': mergeScopes(
+              selectedGsScopes,
+              currentData['GSF']?['scopes'],
+            ),
+            'examDetail': gsfDetails.toMap(),
+          };
         }
 
         // Update CSF data
         if (colonoscopyChecked) {
-          final Map<String, dynamic> currentCSF = currentData['CSF'] ?? {};
-          final Map<String, dynamic> currentCSFScopes =
-              currentCSF['scopes'] ?? {};
-
-          Map<String, Map<String, String>> mergedScopes = mergeScopes(
-            selectedCsScopes,
-            currentCSFScopes,
-          );
-
-          Endoscopy csf = Endoscopy(
-            gumjinOrNot: csfGumjinOrNot,
-            sleepOrNot: csfSleepOrNot,
-            scopes: mergedScopes,
-            examDetail: csfDetails,
-            cancel: csfCancelled,
-          );
-
-          currentData['CSF'] = csf.toMap();
-        } else {
-          currentData['CSF'] = null;
+          currentData['CSF'] = {
+            'gumjinOrNot': csfGumjinOrNot,
+            'sleepOrNot': csfSleepOrNot,
+            'scopes': mergeScopes(
+              selectedCsScopes,
+              currentData['CSF']?['scopes'],
+            ),
+            'examDetail': csfDetails.toMap(),
+          };
         }
 
         // Update sig data
         if (sigmoidoscopyChecked) {
-          final Map<String, dynamic> currentSig = currentData['sig'] ?? {};
-          final Map<String, dynamic> currentSigScopes =
-              currentSig['scopes'] ?? {};
-
-          Map<String, Map<String, String>> mergedScopes = mergeScopes(
-            selectedSigScopes,
-            currentSigScopes,
-          );
-
-          Endoscopy sig = Endoscopy(
-            gumjinOrNot: sigGumjinOrNot,
-            sleepOrNot: sigSleepOrNot,
-            scopes: mergedScopes,
-            examDetail: sigDetails,
-            cancel: sigCancelled,
-          );
-
-          currentData['sig'] = sig.toMap();
-        } else {
-          currentData['sig'] = null;
+          currentData['sig'] = {
+            'gumjinOrNot': sigGumjinOrNot,
+            'sleepOrNot': sigSleepOrNot,
+            'scopes': mergeScopes(
+              selectedSigScopes,
+              currentData['sig']?['scopes'],
+            ),
+            'examDetail': sigDetails.toMap(),
+          };
         }
 
-        print('examTime:${currentData['examTime']}');
-        if (currentData['examTime'] == '') {
-          selectedTime = formatTimeOfDay(
-            TimeOfDay.fromDateTime(DateTime.now()),
-          );
-        }
-
-        // Update other fields
-        currentData['id'] = id;
+        // Update basic information
         currentData['name'] = name;
+        currentData['id'] = id;
         currentData['gender'] = gender;
         currentData['age'] = age;
         currentData['Room'] = selectedRoom;
-        currentData['birthday'] = birthday.toIso8601String();
         currentData['doctor'] = selectedDoctor;
+        currentData['birthday'] = DateFormat('yyyy-MM-dd').format(birthday);
         currentData['examDate'] = DateFormat('yyyy-MM-dd').format(selectedDate);
-        currentData['examTime'] = selectedTime;
+        currentData['examTime'] = DateFormat.Hm().format(DateTime.now());
 
-        transaction.set(docRef, currentData);
+        transaction.update(docRef, currentData);
       });
 
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text('성공적으로 저장되었습니다!!!')));
-
-      await _savePreferences();
+      ).showSnackBar(SnackBar(content: Text('환자 정보가 성공적으로 업데이트되었습니다!')));
+      await _savePreferences(); // Add this line to save room and doctor preferences
     } catch (e) {
-      print('Error saving patient data: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('저장 중 오류가 발생했습니다: ${e.toString()}')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('오류가 발생했습니다: $e')));
     }
   }
 
@@ -1766,6 +2080,557 @@ class _ExaminationRoomState extends State<ExaminationRoom>
     );
   }
 
+  void _showEditPatientPopup(
+    BuildContext context,
+    Patient patient,
+    DateTime date,
+  ) {
+    TextEditingController nameController = TextEditingController(
+      text: patient.name,
+    );
+    TextEditingController idController = TextEditingController(
+      text: patient.id,
+    );
+    String genderValue = patient.gender;
+    DateTime birthdayValue = patient.birthday;
+
+    // 검사 종류 체크박스 상태
+    bool hasGSF = patient.GSF != null;
+    bool hasCSF = patient.CSF != null;
+    bool hasSig = patient.sig != null;
+
+    // 위내시경 검진/외래 상태
+    String gsfGumjinOrNotValue = hasGSF ? patient.GSF!.gumjinOrNot : '검진';
+    String gsfSleepOrNotValue = hasGSF ? patient.GSF!.sleepOrNot : '수면';
+
+    // 대장내시경 검진/외래 상태
+    String csfGumjinOrNotValue = hasCSF ? patient.CSF!.gumjinOrNot : '검진';
+    String csfSleepOrNotValue = hasCSF ? patient.CSF!.sleepOrNot : '수면';
+
+    // S상결장경 검진/외래 상태
+    String sigGumjinOrNotValue = hasSig ? patient.sig!.gumjinOrNot : '외래';
+    String sigSleepOrNotValue = hasSig ? patient.sig!.sleepOrNot : '일반';
+
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return Dialog(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Container(
+                width: 400,
+                padding: EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            '환자 정보 편집',
+                            style: TextStyle(
+                              fontSize: 22,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.blue[800],
+                            ),
+                          ),
+                          IconButton(
+                            icon: Icon(Icons.close, color: Colors.grey[600]),
+                            onPressed: () => Navigator.of(context).pop(),
+                          ),
+                        ],
+                      ),
+                      SizedBox(height: 20),
+
+                      // 기본 정보 섹션
+                      Text(
+                        '기본 정보',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.grey[800],
+                        ),
+                      ),
+                      SizedBox(height: 12),
+                      Container(
+                        padding: EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: Colors.grey[50],
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: Colors.grey[200]!),
+                        ),
+                        child: Column(
+                          children: [
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: TextField(
+                                    controller: nameController,
+                                    decoration: InputDecoration(
+                                      labelText: '이름',
+                                      labelStyle: TextStyle(
+                                        color: Colors.grey[600],
+                                      ),
+                                      border: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                      focusedBorder: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(8),
+                                        borderSide: BorderSide(
+                                          color: Colors.blue,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                SizedBox(width: 12),
+                                Expanded(
+                                  child: TextField(
+                                    controller: idController,
+                                    decoration: InputDecoration(
+                                      labelText: '등록번호',
+                                      labelStyle: TextStyle(
+                                        color: Colors.grey[600],
+                                      ),
+                                      border: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                      focusedBorder: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(8),
+                                        borderSide: BorderSide(
+                                          color: Colors.blue,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            SizedBox(height: 12),
+                            Row(
+                              children: [
+                                // Text(
+                                //   '성별: ',
+                                //   style: TextStyle(
+                                //     fontSize: 16,
+                                //     color: Colors.grey[700],
+                                //   ),
+                                // ),
+                                // SizedBox(width: 8),
+                                ChoiceChip(
+                                  label: Text('남'),
+                                  selected: genderValue == 'M',
+                                  onSelected: (selected) {
+                                    setState(() {
+                                      genderValue = 'M';
+                                    });
+                                  },
+                                  selectedColor: Colors.blue[100],
+                                  backgroundColor: Colors.grey[200],
+                                  labelStyle: TextStyle(
+                                    color:
+                                        genderValue == 'M'
+                                            ? Colors.blue[800]
+                                            : Colors.grey[700],
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                SizedBox(width: 8),
+                                ChoiceChip(
+                                  label: Text('여'),
+                                  selected: genderValue == 'F',
+                                  onSelected: (selected) {
+                                    setState(() {
+                                      genderValue = 'F';
+                                    });
+                                  },
+                                  selectedColor: Colors.blue[100],
+                                  backgroundColor: Colors.grey[200],
+                                  labelStyle: TextStyle(
+                                    color:
+                                        genderValue == 'F'
+                                            ? Colors.blue[800]
+                                            : Colors.grey[700],
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                Spacer(),
+                                ElevatedButton(
+                                  onPressed: () async {
+                                    final DateTime? picked =
+                                        await showDatePicker(
+                                          context: context,
+                                          initialDate: birthdayValue,
+                                          firstDate: DateTime(1900),
+                                          lastDate: DateTime.now(),
+                                          locale: const Locale('ko', 'KR'),
+                                        );
+                                    if (picked != null) {
+                                      setState(() {
+                                        birthdayValue = picked;
+                                      });
+                                    }
+                                  },
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.blue[50],
+                                    foregroundColor: Colors.blue[800],
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                  ),
+                                  child: Text(
+                                    '생일: ${DateFormat('yy/MM/dd').format(birthdayValue)}',
+                                    style: TextStyle(fontSize: 14),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                      SizedBox(height: 20),
+
+                      // 검사 종류 섹션
+                      Text(
+                        '검사 종류',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.grey[800],
+                        ),
+                      ),
+                      SizedBox(height: 12),
+                      Container(
+                        padding: EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: Colors.grey[50],
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: Colors.grey[200]!),
+                        ),
+                        child: Column(
+                          children: [
+                            // 위내시경 섹션
+                            _buildExamSection(
+                              '위내시경',
+                              hasGSF,
+                              (value) => setState(() => hasGSF = value!),
+                              gsfGumjinOrNotValue,
+                              (value) =>
+                                  setState(() => gsfGumjinOrNotValue = value!),
+                              gsfSleepOrNotValue,
+                              (value) =>
+                                  setState(() => gsfSleepOrNotValue = value!),
+                            ),
+                            Divider(height: 24),
+                            // 대장내시경 섹션
+                            _buildExamSection(
+                              '대장내시경',
+                              hasCSF,
+                              (value) => setState(() => hasCSF = value!),
+                              csfGumjinOrNotValue,
+                              (value) =>
+                                  setState(() => csfGumjinOrNotValue = value!),
+                              csfSleepOrNotValue,
+                              (value) =>
+                                  setState(() => csfSleepOrNotValue = value!),
+                            ),
+                            Divider(height: 24),
+                            // S상결장경 섹션
+                            _buildExamSection(
+                              'S상결장경',
+                              hasSig,
+                              (value) => setState(() => hasSig = value!),
+                              sigGumjinOrNotValue,
+                              (value) =>
+                                  setState(() => sigGumjinOrNotValue = value!),
+                              sigSleepOrNotValue,
+                              (value) =>
+                                  setState(() => sigSleepOrNotValue = value!),
+                            ),
+                          ],
+                        ),
+                      ),
+                      SizedBox(height: 24),
+
+                      // 버튼 섹션
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        children: [
+                          TextButton(
+                            onPressed: () => Navigator.of(context).pop(),
+                            child: Text(
+                              '취소',
+                              style: TextStyle(
+                                color: Colors.grey[600],
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                          SizedBox(width: 8),
+                          ElevatedButton(
+                            onPressed: () async {
+                              // 나이 계산
+                              int age =
+                                  DateTime.now().year - birthdayValue.year;
+                              if (DateTime.now().month < birthdayValue.month ||
+                                  (DateTime.now().month ==
+                                          birthdayValue.month &&
+                                      DateTime.now().day < birthdayValue.day)) {
+                                age--;
+                              }
+
+                              // 데이터 수정
+                              try {
+                                final docRef = FirebaseFirestore.instance
+                                    .collection('patients')
+                                    .doc(patient.uniqueDocName);
+
+                                await FirebaseFirestore.instance.runTransaction(
+                                  (transaction) async {
+                                    final docSnapshot = await transaction.get(
+                                      docRef,
+                                    );
+
+                                    if (!docSnapshot.exists) {
+                                      throw Exception(
+                                        "Patient document does not exist!",
+                                      );
+                                    }
+
+                                    // 기존 데이터 가져오기
+                                    Map<String, dynamic> currentData =
+                                        docSnapshot.data()
+                                            as Map<String, dynamic>;
+
+                                    // 기본 정보 업데이트
+                                    Map<String, dynamic> updateData = {
+                                      'name': nameController.text,
+                                      'id': idController.text,
+                                      'gender': genderValue,
+                                      'birthday': DateFormat(
+                                        'yyyy-MM-dd',
+                                      ).format(birthdayValue),
+                                      'age': age,
+                                    };
+
+                                    // 위내시경 데이터 업데이트
+                                    if (hasGSF) {
+                                      Map<String, dynamic> gsfData =
+                                          currentData['GSF']
+                                              as Map<String, dynamic>? ??
+                                          {};
+                                      gsfData['gumjinOrNot'] =
+                                          gsfGumjinOrNotValue;
+                                      gsfData['sleepOrNot'] =
+                                          gsfSleepOrNotValue;
+                                      updateData['GSF'] = gsfData;
+                                    } else {
+                                      updateData['GSF'] = null;
+                                    }
+
+                                    // 대장내시경 데이터 업데이트
+                                    if (hasCSF) {
+                                      Map<String, dynamic> csfData =
+                                          currentData['CSF']
+                                              as Map<String, dynamic>? ??
+                                          {};
+                                      csfData['gumjinOrNot'] =
+                                          csfGumjinOrNotValue;
+                                      csfData['sleepOrNot'] =
+                                          csfSleepOrNotValue;
+                                      updateData['CSF'] = csfData;
+                                    } else {
+                                      updateData['CSF'] = null;
+                                    }
+
+                                    // S상결장경 데이터 업데이트
+                                    if (hasSig) {
+                                      Map<String, dynamic> sigData =
+                                          currentData['sig']
+                                              as Map<String, dynamic>? ??
+                                          {};
+                                      sigData['gumjinOrNot'] =
+                                          sigGumjinOrNotValue;
+                                      sigData['sleepOrNot'] =
+                                          sigSleepOrNotValue;
+                                      updateData['sig'] = sigData;
+                                    } else {
+                                      updateData['sig'] = null;
+                                    }
+
+                                    transaction.update(docRef, updateData);
+                                  },
+                                );
+
+                                Navigator.of(context).pop();
+                                Navigator.of(context).pop();
+                                showExamPopup(context, date);
+                              } catch (e) {
+                                print("Error updating patient: $e");
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text('환자 정보 업데이트 중 오류가 발생했습니다.'),
+                                  ),
+                                );
+                              }
+                            },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.blue[800],
+                              foregroundColor: Colors.white,
+                              padding: EdgeInsets.symmetric(
+                                horizontal: 24,
+                                vertical: 12,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                            ),
+                            child: Text(
+                              '저장',
+                              style: TextStyle(fontWeight: FontWeight.bold),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildExamSection(
+    String title,
+    bool isChecked,
+    Function(bool?) onChanged,
+    String gumjinOrNotValue,
+    Function(String?) onGumjinChanged,
+    String sleepOrNotValue,
+    Function(String?) onSleepChanged,
+  ) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        CheckboxListTile(
+          title: Text(
+            title,
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              color: isChecked ? Colors.blue[800] : Colors.grey[700],
+            ),
+          ),
+          value: isChecked,
+          onChanged: onChanged,
+          controlAffinity: ListTileControlAffinity.leading,
+          contentPadding: EdgeInsets.zero,
+          activeColor: Colors.blue[800],
+        ),
+        if (isChecked) ...[
+          SizedBox(height: 8),
+          Padding(
+            padding: const EdgeInsets.only(left: 16.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '검진/외래',
+                  style: TextStyle(fontSize: 14, color: Colors.grey[700]),
+                ),
+                SizedBox(height: 8),
+                Row(
+                  children: [
+                    ChoiceChip(
+                      label: Text('검진'),
+                      selected: gumjinOrNotValue == '검진',
+                      onSelected: (selected) => onGumjinChanged('검진'),
+                      selectedColor: Colors.blue[100],
+                      backgroundColor: Colors.grey[200],
+                      labelStyle: TextStyle(
+                        color:
+                            gumjinOrNotValue == '검진'
+                                ? Colors.blue[800]
+                                : Colors.grey[700],
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    SizedBox(width: 8),
+                    ChoiceChip(
+                      label: Text('외래'),
+                      selected: gumjinOrNotValue == '외래',
+                      onSelected: (selected) => onGumjinChanged('외래'),
+                      selectedColor: Colors.blue[100],
+                      backgroundColor: Colors.grey[200],
+                      labelStyle: TextStyle(
+                        color:
+                            gumjinOrNotValue == '외래'
+                                ? Colors.blue[800]
+                                : Colors.grey[700],
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+                SizedBox(height: 12),
+                Text(
+                  '수면/일반',
+                  style: TextStyle(fontSize: 14, color: Colors.grey[700]),
+                ),
+                SizedBox(height: 8),
+                Row(
+                  children: [
+                    ChoiceChip(
+                      label: Text('수면'),
+                      selected: sleepOrNotValue == '수면',
+                      onSelected: (selected) => onSleepChanged('수면'),
+                      selectedColor: Colors.blue[100],
+                      backgroundColor: Colors.grey[200],
+                      labelStyle: TextStyle(
+                        color:
+                            sleepOrNotValue == '수면'
+                                ? Colors.blue[800]
+                                : Colors.grey[700],
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    SizedBox(width: 8),
+                    ChoiceChip(
+                      label: Text('일반'),
+                      selected: sleepOrNotValue == '일반',
+                      onSelected: (selected) => onSleepChanged('일반'),
+                      selectedColor: Colors.blue[100],
+                      backgroundColor: Colors.grey[200],
+                      labelStyle: TextStyle(
+                        color:
+                            sleepOrNotValue == '일반'
+                                ? Colors.blue[800]
+                                : Colors.grey[700],
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     super.build(context);
@@ -1801,29 +2666,65 @@ class _ExaminationRoomState extends State<ExaminationRoom>
                 child: Column(
                   children: [
                     Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween, // 변경됨
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        ElevatedButton(
-                          // 초기화 버튼을 맨 앞으로 이동
-                          onPressed: _resetForm,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.white,
-                            foregroundColor: Colors.black,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(30),
-                              side: BorderSide(
-                                color: Colors.redAccent,
-                                width: 0.5,
+                        Row(
+                          children: [
+                            ElevatedButton(
+                              onPressed: _resetForm,
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.white,
+                                foregroundColor: Colors.black,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(30),
+                                  side: BorderSide(
+                                    color: Colors.redAccent,
+                                    width: 0.5,
+                                  ),
+                                ),
+                              ),
+                              child: Text(
+                                '초기화',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.redAccent,
+                                ),
                               ),
                             ),
-                          ),
-                          child: Text(
-                            '초기화',
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              color: Colors.redAccent,
-                            ),
-                          ),
+                            if (_isAuthorizedUser)
+                              Padding(
+                                padding: const EdgeInsets.only(left: 8.0),
+                                child: ElevatedButton(
+                                  onPressed: () {
+                                    print('녹음 버튼 클릭');
+                                  },
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.white,
+                                    foregroundColor: Colors.black,
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(30),
+                                      side: BorderSide(
+                                        color: Colors.green,
+                                        width: 0.5,
+                                      ),
+                                    ),
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      Icon(Icons.mic, color: Colors.green),
+                                      SizedBox(width: 4),
+                                      Text(
+                                        '녹음',
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          color: Colors.green,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                          ],
                         ),
                         Row(
                           // 나머지 버튼들을 Row로 감싸서 우측에 배치
@@ -2444,7 +3345,7 @@ class _ExaminationRoomState extends State<ExaminationRoom>
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 Text(
-                                  'S상 결장경',
+                                  'S상결장경',
                                   style: TextStyle(
                                     fontWeight: FontWeight.bold,
                                     fontSize: 20,
@@ -2570,7 +3471,7 @@ class _ExaminationRoomState extends State<ExaminationRoom>
                                   ),
                                 ),
                                 child: Text(
-                                  '저 장',
+                                  '저장',
                                   style: TextStyle(color: Colors.white),
                                 ),
                               ),
