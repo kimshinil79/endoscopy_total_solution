@@ -12,6 +12,7 @@ import 'package:provider/provider.dart';
 import 'package:flutter_email_sender/flutter_email_sender.dart';
 import '../provider/settings_provider.dart';
 import 'package:fl_chart/fl_chart.dart';
+import '../widgets/disinfectant_change_log_excel.dart';
 
 // 색상 팔레트 정의
 final Color oceanBlue = Color(0xFF1A5F7A);
@@ -108,266 +109,6 @@ class _StatisticsPageState extends State<StatisticsPage>
 
   double progressValue = 0.0; // Add a progress value variable
   String progressMessage = ''; // Add a progress message variable
-
-  void createDisinfectantChangeLogExcel() async {
-    setState(() {
-      isLoading = true;
-    });
-
-    try {
-      showDialog(
-        context: context,
-        builder: (BuildContext context) {
-          String? selectedMachine; // null로 초기화
-          List<DateTime> changeDates = [];
-          Set<DateTime> selectedDates = {};
-
-          return StatefulBuilder(
-            builder: (context, setState) {
-              return Dialog(
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Container(
-                  width: MediaQuery.of(context).size.width * 0.9,
-                  constraints: BoxConstraints(
-                    maxHeight: MediaQuery.of(context).size.height * 0.8,
-                  ),
-                  padding: const EdgeInsets.all(20.0),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        '세척기별 소독액 일지',
-                        style: TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                          color: oceanBlue,
-                        ),
-                      ),
-                      SizedBox(height: 20),
-                      Container(
-                        padding: EdgeInsets.symmetric(horizontal: 12),
-                        decoration: BoxDecoration(
-                          color: Colors.grey[200],
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: DropdownButtonHideUnderline(
-                          child: DropdownButton<String>(
-                            value: selectedMachine,
-                            isExpanded: true,
-                            hint: Text(
-                              "세척기 선택",
-                              style: TextStyle(color: oceanBlue),
-                            ),
-                            icon: Icon(Icons.arrow_drop_down, color: oceanBlue),
-                            style: TextStyle(color: oceanBlue, fontSize: 16),
-                            onChanged: (String? newValue) {
-                              setState(() {
-                                selectedMachine = newValue!;
-                                selectedDates.clear();
-                                fetchChangeDates(selectedMachine!).then((
-                                  dates,
-                                ) {
-                                  setState(() {
-                                    changeDates = dates;
-                                    changeDates.sort(
-                                      (a, b) => b.compareTo(a),
-                                    ); // Sort dates in descending order
-                                  });
-                                });
-                              });
-                            },
-                            items:
-                                [
-                                  '1호기',
-                                  '2호기',
-                                  '3호기',
-                                  '4호기',
-                                  '5호기',
-                                ].map<DropdownMenuItem<String>>((String value) {
-                                  return DropdownMenuItem<String>(
-                                    value: value,
-                                    child: Text(value),
-                                  );
-                                }).toList(),
-                          ),
-                        ),
-                      ),
-                      SizedBox(height: 20),
-                      Flexible(
-                        child: ListView.builder(
-                          shrinkWrap: true,
-                          itemCount: changeDates.length,
-                          itemBuilder: (context, index) {
-                            DateTime date = changeDates[index];
-                            bool isSelected = selectedDates.contains(date);
-                            return Padding(
-                              padding: const EdgeInsets.only(bottom: 10),
-                              child: ElevatedButton(
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor:
-                                      isSelected ? oceanBlue : Colors.grey[300],
-                                  foregroundColor:
-                                      isSelected
-                                          ? Colors.white
-                                          : Colors.black87,
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(10),
-                                  ),
-                                  padding: EdgeInsets.symmetric(
-                                    vertical: 12,
-                                    horizontal: 16,
-                                  ),
-                                ),
-                                onPressed: () {
-                                  setState(() {
-                                    if (isSelected) {
-                                      selectedDates.remove(date);
-                                    } else {
-                                      selectedDates.add(date);
-                                    }
-                                  });
-                                },
-                                child: Text(
-                                  DateFormat('yyyy/MM/dd HH:mm').format(date),
-                                  style: TextStyle(fontSize: 16),
-                                ),
-                              ),
-                            );
-                          },
-                        ),
-                      ),
-                      SizedBox(height: 20),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                        children: [
-                          ElevatedButton(
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.grey[300],
-                              foregroundColor: Colors.black87,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                            ),
-                            child: Text('취소'),
-                            onPressed: () => Navigator.of(context).pop(),
-                          ),
-                          ElevatedButton(
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: oceanBlue,
-                              foregroundColor: Colors.white,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                            ),
-                            child: Text('확인'),
-                            onPressed: () {
-                              if (selectedMachine != null &&
-                                  selectedDates.isNotEmpty) {
-                                createExcelFile(
-                                  selectedMachine!,
-                                  selectedDates.toList(),
-                                );
-                                Navigator.of(context).pop();
-                              } else {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: Text(
-                                      '세척기를 선택하고 적어도 하나의 날짜를 선택해주세요.',
-                                    ),
-                                  ),
-                                );
-                              }
-                            },
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              );
-            },
-          );
-        },
-      );
-    } catch (e) {
-      print('Error creating Excel file: $e');
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('엑셀 파일 생성 중 오류가 발생했습니다.')));
-    } finally {
-      setState(() {
-        isLoading = false;
-      });
-    }
-  }
-
-  Future<List<DateTime>> fetchChangeDates(String machineName) async {
-    // Fetch disinfectant change dates from Firestore
-    DocumentSnapshot doc =
-        await FirebaseFirestore.instance
-            .collection('washingMachines') // Updated collection name
-            .doc(machineName)
-            .get();
-
-    if (doc.exists) {
-      Map<String, dynamic> datesMap = doc['disinfectantChangeDate'];
-      List<DateTime> dates =
-          datesMap.keys
-              .map((dateString) {
-                try {
-                  return DateTime.parse(dateString);
-                } catch (e) {
-                  print('Error parsing date: $dateString');
-                  return null;
-                }
-              })
-              .where((date) => date != null)
-              .cast<DateTime>()
-              .toList();
-      return dates;
-    }
-    return [];
-  }
-
-  void createExcelFile(String machineName, List<DateTime> changeDates) async {
-    final xls.Workbook workbook = xls.Workbook();
-
-    for (int i = 0; i < changeDates.length; i++) {
-      DateTime changeDate = changeDates[i];
-      xls.Worksheet sheet;
-
-      if (i == 0) {
-        // 첫 번째 시트 재사용
-        sheet = workbook.worksheets[0];
-      } else {
-        // 새 시트 추가
-        sheet = workbook.worksheets.add();
-      }
-
-      String sanitizedName = DateFormat('yyyy-MM-dd HHmm').format(changeDate);
-      sheet.name = sanitizedName;
-
-      // 시트 설정 및 데이터 채우기
-      setupBasicStructure(sheet, machineName, changeDate);
-      await fillData(sheet, machineName, changeDate);
-    }
-
-    // 나머지 코드 (파일 저장 등)
-    final List<int> bytes = workbook.saveAsStream();
-    workbook.dispose();
-
-    final String path = (await getApplicationDocumentsDirectory()).path;
-    final String fileName =
-        '내시경소독액교환점검표_${machineName}_${DateFormat('yyyyMMdd').format(DateTime.now())}.xlsx';
-    final String filePath = '$path/$fileName';
-    final File file = File(filePath);
-    await file.writeAsBytes(bytes, flush: true);
-
-    // 이메일 전송 다이얼로그 표시
-    _showSendEmailDialog(filePath, '내시경 소독액 교환 점검표');
-  }
 
   void setupBasicStructure(
     xls.Worksheet sheet,
@@ -4347,7 +4088,23 @@ class _StatisticsPageState extends State<StatisticsPage>
                               fit: BoxFit.scaleDown,
                               child: Text('세척기별 일지'),
                             ),
-                            onPressed: createDisinfectantChangeLogExcel,
+                            onPressed: () {
+                              DisinfectantChangeLogExcel.show(
+                                context,
+                                (bool loading) {
+                                  setState(() {
+                                    isLoading = loading;
+                                  });
+                                },
+                                (
+                                  BuildContext context,
+                                  String filePath,
+                                  String subject,
+                                ) {
+                                  _showSendEmailDialog(filePath, subject);
+                                },
+                              );
+                            },
                           ),
                         ),
                       ],
