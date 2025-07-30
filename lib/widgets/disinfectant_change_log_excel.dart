@@ -360,7 +360,7 @@ class DisinfectantChangeLogExcel {
       cell.cellStyle.hAlign = xls.HAlignType.center;
       cell.cellStyle.vAlign = xls.VAlignType.center;
       cell.cellStyle.borders.all.lineStyle = xls.LineStyle.thin;
-      cell.cellStyle.color = '#E8E8E8';
+      cell.cellStyle.backColor = '#E8E8E8';
     }
   }
 
