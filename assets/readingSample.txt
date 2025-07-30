@@ -1,0 +1,226 @@
+Abbreviations and terminology for reporting
+
+DA : distal antrum
+PA : proximal antrum
+MA: mid antrum
+LB : Low body
+MB : Mid body
+UB : Upper body
+GC : Greater curvature
+LC : Lesser curvature
+AW : anterior wall
+PW : posterior wall
+abd. : abdominal
+fundus
+cardia
+bulb
+2nd portion
+lower esophagus
+upper esophagus
+mid esophagus
+EGJ : EG junction
+SMT
+rolling sign
+
+===========================================
+Guidelines for Report Format
+
+After writing <Conclusion>, insert a line break and list each finding on a separate line.
+
+Only mention the medications that were actually administered.
+==================================================
+
+
+검사이유: abd. discomfort
+투여약물 :  propofol 60mg
+
+부작용 : 없음
+
+Esophagus : hyperemic mucosa at EGJ
+
+Stomach : atrophic mucosal change at antrum and body
+
+Duodenum : nonspecific
+
+<Conclusion>
+Atrophic gastritis
+
+rec> 1년뒤 위내시경 받으시기 바랍니다.
+
+==================================================
+검사이유: 검진 /
+투여약물 :  propofol 40+20mg
+부작용 : 없음
+
+
+Esophagus : mucosal breaks at EGJ
+
+Stomach : atrophic mucosal change with intestinal metaplasia at antrum and body
+
+Duodenum : nonspecific
+
+<Conclusion>
+GERD(A)
+Atrophic gastritis with IM
+
+rec> 1년뒤 위내시경 받으시기 바랍니다.
+
+=======================================================
+검사이유: 검진 /
+
+투여약물 : midazolam  2+1+1mg
+
+
+부작용 : 없음
+
+
+Esophagus : hyperemic mucosa at EGJ
+
+Stomach : atrophic mucosal change at antrum and body
+
+Duodenum : nonspecific
+
+<Conclusion>
+GERD(A)
+Atrophic gastritis
+
+rec> 1년뒤 위내시경 받으시기 바랍니다.
+=======================================================
+검사이유: 검진 /
+
+투여약물 : midazolam  2+1+1mg
+
+
+부작용 : 없음
+
+
+Esophagus : hyperemic mucosa at EGJ
+
+Stomach : atrophic mucosal change at antrum and body, CLO done
+
+Duodenum : nonspecific
+
+<Conclusion>
+GERD(A)
+Atrophic gastritis
+
+rec> 1년뒤 위내시경 받으시기 바랍니다.
+
+===========================================================
+
+검사이유: 검진 /
+
+투여약물 :  propofol 40+20mg
+부작용 : 없음
+
+Esophagus : nonspecific
+
+Stomach : multiple elevated and flat erosive lesions at antrum and body, Bx(S1) at DA/GC
+
+Duodenum : nonspecific
+
+<Conclusion>
+Erosive  gastritis
+
+rec> 1년뒤 위내시경 받으시기 바랍니다.
+=============================================================
+검사이유: 검진 /
+
+투여약물 : midazolam  2mg, propofol 40+20mg
+
+
+부작용 : 없음
+
+Esophagus : hyperemic mucosa at EGJ
+
+Stomach : Several hyperemic mucosa at antrum and body
+
+Duodenum : nonspecific
+
+[Conclusion]
+GERD(B)
+CSG
+
+rec> 2년뒤 위내시경 받으시기 바랍니다.
+===============================================================
+검사이유: 검진 /
+
+투여약물 : midazolam  2+1+1mg
+
+
+부작용 : 없음
+
+
+Esophagus : hyperemic mucosa at EGJ
+
+Stomach : atrophic mucosal change at antrum and body,
+              1cm ulcer at LB/GC, Bx(S1) & CLO done
+
+Duodenum : nonspecific
+
+<Conclusion>
+GERD(A)
+Atrophic gastritis
+r/o Gastric ulcer
+
+rec> 2개월 뒤 위내시경 받으시기 바랍니다.
+================================================================
+검사 이유 : 검진 
+
+투여 약물 : midazolam 1mg, propofol 20mg
+투여 약물 : propofol 20mg
+
+장정결 : good
+
+부작용 : 출혈
+
+
+withdrawal time : 4m 16S
+
+upto cecum base
+
+Normal mucosa & vasculature
+
+<Conclusion>
+W.N.L
+
+
+================================================================
+검사 이유 : abd. discomfort /stool OB positive
+
+투여 약물 : midazolam 1mg, propofol 20mg
+
+장정결 : poor
+
+
+부작용 : paradoxical reaction 심함
+
+
+withdrawal time : 4m 16S
+
+upto T-ileum & cecum base
+
+0.3cm polyp at AV 20cm, cold snare polypectomy(C1)
+0.5cm polyp at AV 15cm, EMR(C2)
+0.3cm polyp at mid. T-colon, removed by Bx(C3)
+
+<Conclusion>
+colon polyps
+
+================================================================
+검사 이유 : stool OB positive
+
+투여 약물 : midazolam 1mg, propofol 20+20+20mg
+
+장정결 : poor
+
+부작용 : 없음
+
+withdrawal time : 4m 16S
+
+upto T-ileum & cecum base
+
+multiple diverticuli at A-Conclusion
+
+<Conclusion>
+Diverticulosis

@@ -8,6 +8,13 @@ import 'package:provider/provider.dart';
 import '../provider/settings_provider.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:uuid/uuid.dart';
+import '../widgets/tested_people_popup.dart';
+import '../widgets/washing_room_top_row.dart';
+import '../widgets/washing_machine_buttons.dart';
+import '../widgets/disinfectant_change_popup.dart';
+import '../widgets/scope_selection_popup.dart';
+import '../widgets/summary_popup.dart';
+import '../widgets/save_button_row.dart';
 
 class WashingRoom extends StatefulWidget {
   @override
@@ -24,90 +31,62 @@ class _WashingRoomState extends State<WashingRoom> with WidgetsBindingObserver {
   String selectedWashingMachine = '';
   List<Map<String, dynamic>> people = [];
   Map<String, List<Map<String, dynamic>>> washingMachineData = {};
-  Map<String, String> recentDisinfectantChangeDates = {
-    '1호기': '00/00',
-    '2호기': '00/00',
-    '3호기': '00/00',
-    '4호기': '00/00',
-    '5호기': '00/00',
-  };
-  Map<String, int> washingMachineCounts = {
-    '1호기': 0,
-    '2호기': 0,
-    '3호기': 0,
-    '4호기': 0,
-    '5호기': 0,
-  };
 
-  Map<String, int> machineAfterChangeCounts = {
-    '1호기': 0,
-    '2호기': 0,
-    '3호기': 0,
-    '4호기': 0,
-    '5호기': 0,
-  };
+  // We'll now get these from SettingsProvider instead of managing them locally
+  List<String> get washingMachineNames =>
+      Provider.of<SettingsProvider>(context, listen: false).washingMachineNames;
+  Map<String, String> get recentDisinfectantChangeDates =>
+      Provider.of<SettingsProvider>(
+        context,
+        listen: false,
+      ).recentDisinfectantChangeDates;
+  Map<String, int> get washingMachineCounts =>
+      Provider.of<SettingsProvider>(
+        context,
+        listen: false,
+      ).washingMachineCounts;
+  Map<String, int> get machineAfterChangeCounts =>
+      Provider.of<SettingsProvider>(
+        context,
+        listen: false,
+      ).machineAfterChangeCounts;
 
-  final Map<String, String> GSFmachine = {
-    '073': 'KG391K073',
-    '180': '5G391K180',
-    '153': '5G391K153',
-    '256': '7G391K256',
-    '257': '7G391K257',
-    '259': '7G391K259',
-    '407': '2G348K407',
-    '405': '2G348K405',
-    '390': '2G348K390',
-    '333': '2G348K333',
-    '694': '5G348K694',
-  };
+  Map<String, String> GSFmachine = {};
+  Map<String, String> CSFmachine = {};
 
-  final Map<String, String> CSFmachine = {
-    '039': '7C692K039',
-    '166': '6C692K166',
-    '098': '5C692K098',
-    '219': '1C664K219',
-    '379': '1C665K379',
-    '515': '1C666K515',
-  };
-
-  List<String> encouragingComments = [
-    '와우~굿잡^^',
-    '늘 감사합니다~',
-    '쌤 최고에요!!',
-    "으쌰~홧팅!!",
-    "내시경실 홧팅!!",
-    "환타스틱!!",
-    "고고씽~",
-    "쉬엄쉬엄해요~",
-    "이 은혜를 어찌갚죠?!",
-  ];
   int unwashedScopesCount = 0;
   int plannedExamCount = 0;
   String buttonText = '검사';
-  String selectedWashingCharger = '소독실무자';
   bool _isSaving = false;
 
   Map<String, List<Map<String, dynamic>>> machineToPatientsMap = {};
+
+  // Get selectedWashingCharger from provider instead of storing locally
+  String get selectedWashingCharger =>
+      Provider.of<SettingsProvider>(
+        context,
+        listen: false,
+      ).selectedWashingCharger;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _selectedDate = DateTime.now();
-    _fetchWashingMachineData();
-    _fetchRecentDisinfectantChangeDates();
     _getCurrentUserEmail();
+    _fetchMachineMaps();
 
+    // Ensure SettingsProvider is initialized before fetching data
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final settingsProvider = Provider.of<SettingsProvider>(
         context,
         listen: false,
       );
-      if (mounted) {
-        setState(() {
-          selectedWashingCharger = settingsProvider.selectedWashingCharger;
-        });
-      }
+
+      // Load settings first to ensure washing machine names are available
+      settingsProvider.loadSettings().then((_) {
+        _fetchWashingMachineData(); // This will use the data from SettingsProvider
+      });
     });
   }
 
@@ -137,8 +116,8 @@ class _WashingRoomState extends State<WashingRoom> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
-    final settingsProvider = Provider.of<SettingsProvider>(context);
-    selectedWashingCharger = settingsProvider.selectedWashingCharger;
+    // Listen to the SettingsProvider changes
+    Provider.of<SettingsProvider>(context);
     return Scaffold(
       backgroundColor: Colors.grey[100],
       body: Stack(
@@ -151,7 +130,12 @@ class _WashingRoomState extends State<WashingRoom> with WidgetsBindingObserver {
                 _buildTopRow(),
                 if ((selectedPatientScope != '검사' || isDeviceCleaning) &&
                     selectedWashingMachine.isNotEmpty)
-                  _buildSaveButton(context),
+                  SaveButtonRow(
+                    selectedWashingCharger: selectedWashingCharger,
+                    onSave: () => _saveToFirestore(context),
+                    onWashingChargerPressed:
+                        () => _showWashingChargerPopup(context),
+                  ),
                 Divider(thickness: 2, color: Colors.brown),
                 SizedBox(height: 8.0),
                 _buildWashingButtons(),
@@ -170,167 +154,71 @@ class _WashingRoomState extends State<WashingRoom> with WidgetsBindingObserver {
   }
 
   Widget _buildTopRow() {
-    return Row(
-      children: [
-        Expanded(
-          flex: 2,
-          child: _buildCustomButton(
+    return WashingRoomTopRow(
+      buttonText: buttonText,
+      selectedScope: selectedScope,
+      selectedDate: _selectedDate,
+      onTestedPeoplePressed: () {
+        TestedPeoplePopup.show(context, _selectedDate, (
+          Map<String, dynamic> person,
+          String name,
+          String examInfo,
+        ) {
+          if (mounted) {
+            setState(() {
+              selectedPatientScope = '$name ($examInfo)';
+              buttonText = selectedPatientScope;
+              // people 리스트를 업데이트하여 저장 시 사용할 수 있도록 함
+              people = [person];
+            });
+          }
+        });
+      },
+      onScopePressed:
+          () => ScopeSelectionPopup.show(
             context,
-            buttonText,
-            onPressed: () => _showTestedPeoplePopup(context),
-            onLongPress: _updateButtonText,
-          ),
-        ),
-        Expanded(
-          child: _buildCustomButton(
-            context,
+            GSFmachine,
+            CSFmachine,
             selectedScope,
-            onPressed: () => _showScopePopup(context),
-            onLongPress: () => setState(() => selectedScope = '기기세척'),
-            backgroundColor: Colors.blue.shade600,
+            (String scope) {
+              if (mounted) {
+                setState(() {
+                  selectedScope = scope;
+                  isDeviceCleaning = true;
+                });
+              }
+            },
           ),
-        ),
-        Expanded(child: _buildDateButton(context)),
-      ],
+      onScopeLongPress: () => setState(() => selectedScope = '기기세척'),
+      onUpdateButtonText: _updateButtonText,
+      onDatePressed: () => _selectDate(context),
+      onDateLongPress:
+          () => setState(() {
+            _selectedDate = DateTime.now();
+            _fetchWashingMachineData();
+          }),
     );
-  }
-
-  Widget _buildCustomButton(
-    BuildContext context,
-    String name, {
-    VoidCallback? onPressed,
-    VoidCallback? onLongPress,
-    Color? backgroundColor,
-  }) {
-    return Padding(
-      padding: const EdgeInsets.all(4.0),
-      child: ElevatedButton(
-        onPressed: onPressed,
-        onLongPress: onLongPress,
-        child: FittedBox(fit: BoxFit.scaleDown, child: Text(name)),
-        style: ElevatedButton.styleFrom(
-          backgroundColor: backgroundColor ?? Colors.blue[50],
-          foregroundColor: Colors.black87,
-          padding: EdgeInsets.symmetric(vertical: 16),
-          elevation: 1,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildDateButton(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(4.0),
-      child: ElevatedButton(
-        onPressed: () => _selectDate(context),
-        onLongPress:
-            () => setState(() {
-              _selectedDate = DateTime.now();
-              _fetchWashingMachineData();
-            }),
-        child: FittedBox(
-          fit: BoxFit.scaleDown,
-          child: Text(_getFormattedDate()),
-        ),
-        style: ElevatedButton.styleFrom(
-          backgroundColor: Colors.green[100],
-          foregroundColor: Colors.black87,
-          padding: EdgeInsets.symmetric(vertical: 16),
-          elevation: 1,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-        ),
-      ),
-    );
-  }
-
-  String _getFormattedDate() {
-    if (_selectedDate == null) return '오늘';
-    return _isToday(_selectedDate!)
-        ? '오늘'
-        : DateFormat('yy/MM/dd').format(_selectedDate!);
-  }
-
-  bool _isToday(DateTime date) {
-    final DateTime now = DateTime.now();
-    return date.year == now.year &&
-        date.month == now.month &&
-        date.day == now.day;
   }
 
   Widget _buildWashingButtons() {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-      children:
-          [
-            '1호기',
-            '2호기',
-            '3호기',
-            '4호기',
-            '5호기',
-          ].map((name) => _buildWashingButton(context, name)).toList(),
-    );
-  }
-
-  Widget _buildWashingButton(BuildContext context, String name) {
-    String patientsCount = washingMachineCounts[name].toString();
-    String recentDate = recentDisinfectantChangeDates[name] ?? '00/00';
-    int afterChangeCount = machineAfterChangeCounts[name] ?? 0;
-
-    if (recentDate != '00/00') {
-      DateTime parsedDate = DateTime.parse(recentDate);
-      recentDate = DateFormat('M월d일').format(parsedDate);
-    }
-
-    return Expanded(
-      child: Padding(
-        padding: const EdgeInsets.all(4.0),
-        child: ElevatedButton(
-          onPressed:
-              () => setState(
-                () =>
-                    selectedWashingMachine =
-                        selectedWashingMachine == name ? '' : name,
-              ),
-          onLongPress: () => _showDisinfectantChangePopup(context, name),
-          style: ElevatedButton.styleFrom(
-            backgroundColor:
-                selectedWashingMachine == name
-                    ? Colors.orange[100]
-                    : Colors.yellow[100],
-            foregroundColor: Colors.black87,
-            padding: EdgeInsets.all(16.0),
-            elevation: 1,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(8),
-            ),
-          ),
-          child: Column(
-            children: [
-              FittedBox(
-                fit: BoxFit.scaleDown,
-                child: Text(name, style: TextStyle(fontSize: 18)),
-              ),
-              SizedBox(height: 4.0),
-              FittedBox(
-                fit: BoxFit.scaleDown,
-                child: Text(
-                  recentDate,
-                  style: TextStyle(fontSize: 12, color: Colors.black54),
-                ),
-              ),
-              SizedBox(height: 4.0),
-              FittedBox(
-                fit: BoxFit.scaleDown,
-                child: Text(
-                  '$patientsCount / $afterChangeCount',
-                  style: TextStyle(fontSize: 12, color: Colors.black54),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
+    return WashingMachineButtons(
+      washingMachineNames: washingMachineNames,
+      washingMachineCounts: washingMachineCounts,
+      recentDisinfectantChangeDates: recentDisinfectantChangeDates,
+      machineAfterChangeCounts: machineAfterChangeCounts,
+      selectedWashingMachine: selectedWashingMachine,
+      onMachineSelected: (String name) {
+        setState(() {
+          selectedWashingMachine = selectedWashingMachine == name ? '' : name;
+        });
+      },
+      onMachineLongPress: (String name) {
+        DisinfectantChangePopup.show(
+          context,
+          name,
+          () => _fetchWashingMachineData(),
+        );
+      },
     );
   }
 
@@ -339,13 +227,9 @@ class _WashingRoomState extends State<WashingRoom> with WidgetsBindingObserver {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children:
-            [
-              '1호기',
-              '2호기',
-              '3호기',
-              '4호기',
-              '5호기',
-            ].map((name) => _buildWashingDataList(context, name)).toList(),
+            washingMachineNames
+                .map((name) => _buildWashingDataList(context, name))
+                .toList(),
       ),
     );
   }
@@ -353,12 +237,15 @@ class _WashingRoomState extends State<WashingRoom> with WidgetsBindingObserver {
   Widget _buildWashingDataList(BuildContext context, String name) {
     List<Map<String, dynamic>> sortedData = [];
     if (washingMachineData.containsKey(name)) {
-      sortedData = List.from(washingMachineData[name]!);
-      sortedData.sort(
-        (a, b) => DateFormat('HH:mm')
-            .parse(b['washingTime'])
-            .compareTo(DateFormat('HH:mm').parse(a['washingTime'])),
-      );
+      final data = washingMachineData[name];
+      if (data != null) {
+        sortedData = List.from(data);
+        sortedData.sort(
+          (a, b) => DateFormat('HH:mm')
+              .parse(b['washingTime'])
+              .compareTo(DateFormat('HH:mm').parse(a['washingTime'])),
+        );
+      }
     }
 
     return Expanded(
@@ -376,185 +263,6 @@ class _WashingRoomState extends State<WashingRoom> with WidgetsBindingObserver {
     );
   }
 
-  void _showSummaryPopup(BuildContext context, Map<String, dynamic> data) {
-    String newWashingTime = data['washingTime'];
-    showDialog(
-      context: context,
-      builder: (context) {
-        return StatefulBuilder(
-          builder: (context, setState) {
-            return Dialog(
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-              ),
-              elevation: 0,
-              backgroundColor: Colors.transparent,
-              child: Container(
-                padding: EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  shape: BoxShape.rectangle,
-                  borderRadius: BorderRadius.circular(16),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black26,
-                      blurRadius: 10.0,
-                      offset: const Offset(0.0, 10.0),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      '세척기록',
-                      style: TextStyle(
-                        fontSize: 22,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    SizedBox(height: 24),
-                    Text(
-                      '이름: ${data['name']}',
-                      style: TextStyle(fontSize: 16, color: Colors.grey[600]),
-                    ),
-                    SizedBox(height: 8),
-                    Text(
-                      '세척기계: ${data['washingMachine']} / Scope: ${data['scopeName']}',
-                      style: TextStyle(fontSize: 16, color: Colors.grey[600]),
-                    ),
-                    SizedBox(height: 8),
-                    InkWell(
-                      onTap: () async {
-                        TimeOfDay? picked = await showTimePicker(
-                          context: context,
-                          initialTime: TimeOfDay.fromDateTime(
-                            DateFormat('HH:mm').parse(newWashingTime),
-                          ),
-                        );
-                        if (picked != null) {
-                          setState(() {
-                            newWashingTime =
-                                '${picked.hour.toString().padLeft(2, '0')}:${picked.minute.toString().padLeft(2, '0')}';
-                          });
-                        }
-                      },
-                      child: Container(
-                        padding: EdgeInsets.symmetric(
-                          vertical: 12,
-                          horizontal: 16,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Colors.green[50],
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Text(
-                              '세척 시간',
-                              style: TextStyle(
-                                fontSize: 16,
-                                color: Colors.blue[700],
-                              ),
-                            ),
-                            SizedBox(width: 16),
-                            Text(
-                              newWashingTime,
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.blue[700],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                    SizedBox(height: 24),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                      children: [
-                        ElevatedButton(
-                          onPressed: () {
-                            _updateSummary(
-                              context,
-                              data['uniqueDocName'],
-                              data['examType'],
-                              data['washingMachine'],
-                              newWashingTime,
-                            );
-                            Navigator.of(context).pop();
-                          },
-                          child: Text('확인'),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.blue[50],
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(8),
-                              side: BorderSide(
-                                color: Colors.blue[300]!,
-                                width: 1,
-                              ),
-                            ),
-                          ),
-                        ),
-                        ElevatedButton(
-                          onPressed: () {
-                            Navigator.of(context).pop();
-                          },
-                          child: Text(
-                            '취소',
-                            style: TextStyle(color: Colors.grey[600]),
-                          ),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.blue[50],
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(8),
-                              side: BorderSide(
-                                color: Colors.blue[300]!,
-                                width: 1,
-                              ),
-                            ),
-                          ),
-                        ),
-                        ElevatedButton(
-                          onPressed: () {
-                            _deleteSummary(
-                              context,
-                              data['uniqueDocName'],
-                              data['examType'],
-                              data['washingMachine'],
-                              data['scopeName'],
-                            );
-                            Navigator.of(context).pop();
-                          },
-                          child: Text(
-                            '삭제',
-                            style: TextStyle(color: Colors.red),
-                          ),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.blue[50],
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(8),
-                              side: BorderSide(
-                                color: Colors.blue[300]!,
-                                width: 1,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            );
-          },
-        );
-      },
-    );
-  }
-
   Widget _buildSummaryButton(BuildContext context, Map<String, dynamic> data) {
     String truncateName(String name) {
       return name.length > 3 ? name.substring(0, 2) + '...' : name;
@@ -565,7 +273,13 @@ class _WashingRoomState extends State<WashingRoom> with WidgetsBindingObserver {
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 2.0),
         child: ElevatedButton(
-          onPressed: () => _showSummaryPopup(context, data),
+          onPressed:
+              () => SummaryPopup.show(
+                context,
+                data,
+                _updateSummary,
+                _deleteSummary,
+              ),
           child: Column(
             children: [
               Text(
@@ -597,62 +311,24 @@ class _WashingRoomState extends State<WashingRoom> with WidgetsBindingObserver {
     );
   }
 
-  Widget _buildSaveButton(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8.0),
-      child: Row(
-        children: [
-          Expanded(
-            flex: 5,
-            child: ElevatedButton(
-              onPressed:
-                  selectedWashingCharger == '소독실무자'
-                      ? null
-                      : () => _saveToFirestore(context),
-              child: Text('저장'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.blue[400],
-                foregroundColor: Colors.white,
-                padding: EdgeInsets.symmetric(vertical: 16),
-                elevation: 1,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-              ),
-            ),
-          ),
-          SizedBox(width: 8),
-          Expanded(
-            flex: 1,
-            child: ElevatedButton(
-              onPressed: () => _showWashingChargerPopup(context),
-              child: FittedBox(
-                fit: BoxFit.scaleDown,
-                child: Text(selectedWashingCharger),
-              ),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.green[400],
-                foregroundColor: Colors.white,
-                padding: EdgeInsets.symmetric(vertical: 16),
-                elevation: 1,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   void _updateButtonText() {
     if (mounted) {
       setState(() {
         selectedPatientScope = '검사';
         if (unwashedScopesCount == 0 && plannedExamCount == 0) {
-          buttonText =
-              encouragingComments[Random().nextInt(encouragingComments.length)];
+          final settingsProvider = Provider.of<SettingsProvider>(
+            context,
+            listen: false,
+          );
+          String randomComment =
+              settingsProvider.encouragingComments[Random().nextInt(
+                settingsProvider.encouragingComments.length,
+              )];
+          randomComment = randomComment.replaceAll(
+            '누구야',
+            selectedWashingCharger,
+          );
+          buttonText = randomComment;
         } else {
           buttonText =
               '검사 (미세척: $unwashedScopesCount / 검사예정: $plannedExamCount)';
@@ -759,23 +435,24 @@ class _WashingRoomState extends State<WashingRoom> with WidgetsBindingObserver {
   }
 
   void _updateWashingMachineAfterChangeCounts() {
-    Map<String, int> tempAfterChangeCounts = {
-      '1호기': 0,
-      '2호기': 0,
-      '3호기': 0,
-      '4호기': 0,
-      '5호기': 0,
-    };
+    Map<String, int> tempAfterChangeCounts = {};
+
+    // Initialize with 0 counts for all machines
+    for (var machineName in washingMachineNames) {
+      tempAfterChangeCounts[machineName] = 0;
+    }
 
     machineToPatientsMap.forEach((machine, patients) {
-      tempAfterChangeCounts[machine] = patients.length;
+      if (tempAfterChangeCounts.containsKey(machine)) {
+        tempAfterChangeCounts[machine] = patients.length;
+      }
     });
 
-    if (mounted) {
-      setState(() {
-        machineAfterChangeCounts = tempAfterChangeCounts;
-      });
-    }
+    // Update counts in SettingsProvider
+    Provider.of<SettingsProvider>(
+      context,
+      listen: false,
+    ).updateMachineAfterChangeCounts(tempAfterChangeCounts);
   }
 
   Future<void> _deleteSummary(
@@ -859,7 +536,12 @@ class _WashingRoomState extends State<WashingRoom> with WidgetsBindingObserver {
       context,
       listen: false,
     );
-    final List<String> washingRoomPeople = settingsProvider.washingRoomPeople;
+    // 소독실무자를 리스트에 추가
+    final List<String> washingRoomPeople = [
+      ...settingsProvider.washingRoomPeople,
+    ];
+    final String currentSelectedCharger =
+        settingsProvider.selectedWashingCharger;
 
     showDialog(
       context: context,
@@ -897,29 +579,79 @@ class _WashingRoomState extends State<WashingRoom> with WidgetsBindingObserver {
                 ),
                 SizedBox(height: 20),
                 Container(
-                  height: 300,
-                  width: double.maxFinite,
-                  child: ListView.separated(
+                  constraints: BoxConstraints(maxHeight: 400, minWidth: 300),
+                  child: GridView.builder(
                     shrinkWrap: true,
+                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: 2,
+                      childAspectRatio: 2.5,
+                      crossAxisSpacing: 10,
+                      mainAxisSpacing: 10,
+                    ),
                     itemCount: washingRoomPeople.length,
-                    separatorBuilder: (context, index) => Divider(height: 1),
                     itemBuilder: (context, index) {
-                      return ListTile(
-                        title: Text(
-                          washingRoomPeople[index],
-                          style: TextStyle(fontSize: 18, color: Colors.black87),
-                        ),
-                        trailing: Icon(
-                          Icons.arrow_forward_ios,
-                          size: 18,
-                          color: Colors.grey,
-                        ),
+                      final String name = washingRoomPeople[index];
+                      final bool isSelected = name == currentSelectedCharger;
+
+                      return InkWell(
                         onTap: () {
-                          settingsProvider.setSelectedWashingCharger(
-                            washingRoomPeople[index],
-                          );
+                          settingsProvider.setSelectedWashingCharger(name);
                           Navigator.of(context).pop();
                         },
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color:
+                                isSelected
+                                    ? Colors.blue.withOpacity(0.2)
+                                    : Colors.grey.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color:
+                                  isSelected
+                                      ? Colors.blue
+                                      : Colors.grey.shade300,
+                              width: 1.5,
+                            ),
+                          ),
+                          child: Stack(
+                            children: [
+                              Center(
+                                child: Text(
+                                  name,
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight:
+                                        isSelected
+                                            ? FontWeight.bold
+                                            : FontWeight.normal,
+                                    color:
+                                        isSelected
+                                            ? Colors.blue.shade700
+                                            : Colors.black87,
+                                  ),
+                                ),
+                              ),
+                              if (isSelected)
+                                Positioned(
+                                  top: 5,
+                                  right: 5,
+                                  child: Container(
+                                    width: 20,
+                                    height: 20,
+                                    decoration: BoxDecoration(
+                                      color: Colors.blue,
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: Icon(
+                                      Icons.check,
+                                      color: Colors.white,
+                                      size: 14,
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
                       );
                     },
                   ),
@@ -941,344 +673,6 @@ class _WashingRoomState extends State<WashingRoom> with WidgetsBindingObserver {
           ),
         );
       },
-    );
-  }
-
-  void _showScopePopup(BuildContext context) {
-    final List<String> allScopes = [...GSFmachine.keys, ...CSFmachine.keys];
-
-    tempSelectedScope = selectedScope;
-
-    showDialog(
-      context: context,
-      builder: (context) {
-        return StatefulBuilder(
-          builder: (context, setState) {
-            return Dialog(
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-              ),
-              elevation: 0,
-              backgroundColor: Colors.transparent,
-              child: Container(
-                width: MediaQuery.of(context).size.width * 0.8,
-                padding: EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  shape: BoxShape.rectangle,
-                  borderRadius: BorderRadius.circular(16),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black26,
-                      blurRadius: 10.0,
-                      offset: const Offset(0.0, 10.0),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      '기기 목록',
-                      style: TextStyle(
-                        fontSize: 22,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    SizedBox(height: 16),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children:
-                          allScopes.map((scope) {
-                            final bool isSelected = scope == tempSelectedScope;
-                            return GestureDetector(
-                              onTap: () {
-                                setState(() {
-                                  tempSelectedScope = scope;
-                                  isDeviceCleaning = false;
-                                });
-                              },
-                              child: Container(
-                                width: 60,
-                                height: 60,
-                                decoration: BoxDecoration(
-                                  border: Border.all(
-                                    color:
-                                        isSelected
-                                            ? Colors.blue
-                                            : Colors.grey.shade300,
-                                    width: 2,
-                                  ),
-                                  borderRadius: BorderRadius.circular(12),
-                                  color:
-                                      isSelected
-                                          ? Colors.blue.shade50
-                                          : Colors.white,
-                                ),
-                                child: Center(
-                                  child: Text(
-                                    scope,
-                                    style: TextStyle(
-                                      color:
-                                          isSelected
-                                              ? Colors.blue
-                                              : Colors.black87,
-                                      fontWeight:
-                                          isSelected
-                                              ? FontWeight.bold
-                                              : FontWeight.normal,
-                                      fontSize: 14,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            );
-                          }).toList(),
-                    ),
-                    SizedBox(height: 24),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.end,
-                      children: [
-                        TextButton(
-                          onPressed: () {
-                            Navigator.of(context).pop();
-                          },
-                          child: Text(
-                            '취소',
-                            style: TextStyle(color: Colors.black54),
-                          ),
-                        ),
-                        SizedBox(width: 8),
-                        ElevatedButton(
-                          onPressed: () {
-                            Navigator.of(context).pop(tempSelectedScope);
-                            if (mounted) {
-                              setState(() {
-                                selectedScope = tempSelectedScope!;
-                                isDeviceCleaning = true;
-                              });
-                            }
-                          },
-                          child: Text('확인'),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.blue,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            );
-          },
-        );
-      },
-    ).then((selectedScope) {
-      if (selectedScope != null) {
-        if (mounted) {
-          setState(() {
-            this.selectedScope = selectedScope;
-            isDeviceCleaning = true;
-          });
-        }
-      }
-    });
-  }
-
-  Future<void> _showTestedPeoplePopup(BuildContext context) async {
-    final String dateKey =
-        _selectedDate == null
-            ? DateFormat('yyyy-MM-dd').format(DateTime.now())
-            : DateFormat('yyyy-MM-dd').format(_selectedDate!);
-
-    final QuerySnapshot querySnapshot = await FirebaseFirestore.instance
-        .collection('patients')
-        .where('examDate', isEqualTo: dateKey)
-        .get(GetOptions(source: Source.server));
-
-    people =
-        querySnapshot.docs
-            .map((doc) {
-              String name = doc['name'];
-              if (name == '기기세척') return null;
-
-              List<Map<String, dynamic>> exams = [];
-
-              void addExams(String type, Map<String, dynamic>? examData) {
-                if (examData != null && examData['scopes'] != null) {
-                  Map<String, dynamic> scopesMap =
-                      examData['scopes'] as Map<String, dynamic>;
-                  scopesMap.forEach((key, value) {
-                    exams.add({
-                      'type': type,
-                      'scope': key,
-                      'washingMachine': value['washingMachine'] ?? '',
-                    });
-                  });
-                }
-              }
-
-              addExams('위', doc['GSF']);
-              addExams('대장', doc['CSF']);
-              addExams('S상', doc['sig']);
-
-              if (exams.isEmpty) return null;
-
-              return {
-                'name': name,
-                'id': doc['id'],
-                'gender': doc['gender'],
-                'age': doc['age'],
-                'examTime': doc['examTime'],
-                'exams': exams,
-                'uniqueDocName': doc['uniqueDocName'],
-              };
-            })
-            .whereType<Map<String, dynamic>>()
-            .toList();
-
-    final List<Map<String, dynamic>> nullWashingMachinePeople =
-        people.where((person) {
-          return person['exams'].any((exam) => exam['washingMachine'] == '');
-        }).toList();
-
-    final List<Map<String, dynamic>> notNullWashingMachinePeople =
-        people.where((person) {
-          return person['exams'].every((exam) => exam['washingMachine'] != '');
-        }).toList();
-
-    showDialog(
-      context: context,
-      builder: (context) {
-        return Dialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-          elevation: 0,
-          backgroundColor: Colors.transparent,
-          child: Container(
-            width: MediaQuery.of(context).size.width * 0.9,
-            padding: EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              shape: BoxShape.rectangle,
-              borderRadius: BorderRadius.circular(16),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black26,
-                  blurRadius: 10.0,
-                  offset: const Offset(0.0, 10.0),
-                ),
-              ],
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  '검사 받은 사람 목록',
-                  style: TextStyle(fontSize: 22, fontWeight: FontWeight.w600),
-                ),
-                SizedBox(height: 16),
-                Flexible(
-                  child:
-                      people.isEmpty
-                          ? Center(child: Text('해당 날짜에 검사받은 사람이 없습니다.'))
-                          : ListView(
-                            shrinkWrap: true,
-                            children: [
-                              ...nullWashingMachinePeople.map(
-                                (person) => _buildPersonTile(context, person),
-                              ),
-                              if (nullWashingMachinePeople.isNotEmpty &&
-                                  notNullWashingMachinePeople.isNotEmpty)
-                                Divider(
-                                  color: Colors.grey.shade300,
-                                  thickness: 1,
-                                ),
-                              ...notNullWashingMachinePeople.map(
-                                (person) => _buildPersonTile(context, person),
-                              ),
-                            ],
-                          ),
-                ),
-                SizedBox(height: 16),
-                TextButton(
-                  onPressed: () {
-                    Navigator.of(context).pop();
-                  },
-                  child: Text('닫기', style: TextStyle(color: Colors.blue)),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildPersonTile(BuildContext context, Map<String, dynamic> person) {
-    return Card(
-      elevation: 2,
-      margin: EdgeInsets.symmetric(vertical: 8, horizontal: 4),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: Padding(
-        padding: EdgeInsets.all(12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              '${person['name']} (${person['id']}) ${person['gender']}/${person['age']}',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-            ),
-            SizedBox(height: 4),
-            Text(
-              '검사 시간: ${person['examTime']}',
-              style: TextStyle(fontSize: 14, color: Colors.grey.shade600),
-            ),
-            SizedBox(height: 8),
-            Wrap(
-              spacing: 8.0,
-              runSpacing: 8.0,
-              children:
-                  person['exams'].map<Widget>((exam) {
-                    final bool hasWashingMachine = exam['washingMachine'] != '';
-                    return ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor:
-                            hasWashingMachine
-                                ? Colors.green.shade100
-                                : Colors.white,
-                        foregroundColor: Colors.black87,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                      ),
-                      onPressed: () {
-                        if (mounted) {
-                          setState(() {
-                            selectedPatientScope =
-                                '${person['name']} (${exam['type']} ${exam['scope']})';
-                            buttonText = selectedPatientScope;
-                          });
-                        }
-                        Navigator.of(context).pop();
-                      },
-                      child: Text(
-                        '${exam['type']} ${exam['scope']}',
-                        style: TextStyle(
-                          color: hasWashingMachine ? Colors.black : Colors.grey,
-                        ),
-                      ),
-                    );
-                  }).toList(),
-            ),
-          ],
-        ),
-      ),
     );
   }
 
@@ -1391,20 +785,23 @@ class _WashingRoomState extends State<WashingRoom> with WidgetsBindingObserver {
           if (!washingMachineData.containsKey(washingMachine)) {
             washingMachineData[washingMachine] = [];
           }
-          washingMachineData[washingMachine]!.add({
-            'name': selectedPerson['name'],
-            'scope':
-                examType == 'GSF'
-                    ? '위'
-                    : examType == 'CSF'
-                    ? '대장'
-                    : 'S상',
-            'scopeName': scopeName,
-            'washingTime': washingTime,
-            'uniqueDocName': selectedPerson['uniqueDocName'],
-            'examType': examType,
-            'washingMachine': washingMachine,
-          });
+          final data = washingMachineData[washingMachine];
+          if (data != null) {
+            data.add({
+              'name': selectedPerson['name'],
+              'scope':
+                  examType == 'GSF'
+                      ? '위'
+                      : examType == 'CSF'
+                      ? '대장'
+                      : 'S상',
+              'scopeName': scopeName,
+              'washingTime': washingTime,
+              'uniqueDocName': selectedPerson['uniqueDocName'],
+              'examType': examType,
+              'washingMachine': washingMachine,
+            });
+          }
           selectedPatientScope = '검사';
           selectedWashingMachine = '';
           _updateButtonText();
@@ -1500,16 +897,19 @@ class _WashingRoomState extends State<WashingRoom> with WidgetsBindingObserver {
                 if (!washingMachineData.containsKey(washingMachine)) {
                   washingMachineData[washingMachine] = [];
                 }
-                washingMachineData[washingMachine]!.insert(0, {
-                  'name': patient.name,
-                  'scope': GSFmachine.containsKey(selectedScope) ? '위' : '대장',
-                  'scopeName': selectedScope,
-                  'washingTime': washingTime,
-                  'uniqueDocName': uid,
-                  'examType':
-                      GSFmachine.containsKey(selectedScope) ? 'GSF' : 'CSF',
-                  'washingMachine': washingMachine,
-                });
+                final data = washingMachineData[washingMachine];
+                if (data != null) {
+                  data.insert(0, {
+                    'name': patient.name,
+                    'scope': GSFmachine.containsKey(selectedScope) ? '위' : '대장',
+                    'scopeName': selectedScope,
+                    'washingTime': washingTime,
+                    'uniqueDocName': uid,
+                    'examType':
+                        GSFmachine.containsKey(selectedScope) ? 'GSF' : 'CSF',
+                    'washingMachine': washingMachine,
+                  });
+                }
 
                 selectedPatientScope = '검사';
                 selectedScope = '기기세척';
@@ -1546,13 +946,12 @@ class _WashingRoomState extends State<WashingRoom> with WidgetsBindingObserver {
           .get(GetOptions(source: Source.server));
 
       Map<String, List<Map<String, dynamic>>> tempData = {};
-      Map<String, int> tempCounts = {
-        '1호기': 0,
-        '2호기': 0,
-        '3호기': 0,
-        '4호기': 0,
-        '5호기': 0,
-      };
+      Map<String, int> tempCounts = {};
+
+      // Initialize counts with 0 for all machines
+      for (var machineName in washingMachineNames) {
+        tempCounts[machineName] = 0;
+      }
 
       int tempUnwashedCount = 0;
       int tempPlannedExamCount = 0;
@@ -1580,12 +979,17 @@ class _WashingRoomState extends State<WashingRoom> with WidgetsBindingObserver {
       if (mounted) {
         setState(() {
           washingMachineData = tempData;
-          washingMachineCounts = tempCounts;
           unwashedScopesCount = tempUnwashedCount;
           plannedExamCount = tempPlannedExamCount;
           _updateButtonText();
         });
       }
+
+      // Update counts in SettingsProvider
+      Provider.of<SettingsProvider>(
+        context,
+        listen: false,
+      ).updateWashingMachineCounts(tempCounts);
 
       await _fetchPatientsAfterRecentDisinfectantChange();
       _updateWashingMachineAfterChangeCounts();
@@ -1618,20 +1022,23 @@ class _WashingRoomState extends State<WashingRoom> with WidgetsBindingObserver {
         }
 
         tempData[washingMachine] = tempData[washingMachine] ?? [];
-        tempData[washingMachine]!.add({
-          'name': name,
-          'scope':
-              examType == 'GSF'
-                  ? '위'
-                  : examType == 'CSF'
-                  ? '대장'
-                  : 'S상',
-          'scopeName': scopeName,
-          'washingTime': washingTime,
-          'uniqueDocName': doc['uniqueDocName'],
-          'examType': examType,
-          'washingMachine': washingMachine,
-        });
+        final data = tempData[washingMachine];
+        if (data != null) {
+          data.add({
+            'name': name,
+            'scope':
+                examType == 'GSF'
+                    ? '위'
+                    : examType == 'CSF'
+                    ? '대장'
+                    : 'S상',
+            'scopeName': scopeName,
+            'washingTime': washingTime,
+            'uniqueDocName': doc['uniqueDocName'],
+            'examType': examType,
+            'washingMachine': washingMachine,
+          });
+        }
         if (washingMachine.isNotEmpty && washingMachine != '미세척') {
           tempCounts[washingMachine] = (tempCounts[washingMachine] ?? 0) + 1;
         }
@@ -1663,49 +1070,17 @@ class _WashingRoomState extends State<WashingRoom> with WidgetsBindingObserver {
     return unwashedCount;
   }
 
-  Future<void> _fetchRecentDisinfectantChangeDates() async {
-    for (String machineName in recentDisinfectantChangeDates.keys) {
-      DocumentSnapshot docSnapshot = await FirebaseFirestore.instance
-          .collection('washingMachines')
-          .doc(machineName)
-          .get(GetOptions(source: Source.server));
-
-      if (docSnapshot.exists) {
-        Map<String, dynamic> data = docSnapshot.data() as Map<String, dynamic>;
-        Map<String, dynamic> dates = data['disinfectantChangeDate'] ?? {};
-
-        if (dates.isNotEmpty) {
-          // 날짜 키값을 DateTime으로 변환하여 정렬
-          List<String> dateKeys = dates.keys.toList();
-          dateKeys.sort(
-            (a, b) => DateTime.parse(b).compareTo(DateTime.parse(a)),
-          );
-
-          if (dateKeys.isNotEmpty) {
-            if (mounted) {
-              setState(() {
-                recentDisinfectantChangeDates[machineName] = dateKeys.first;
-              });
-            }
-          }
-        }
-      }
-    }
-    _fetchPatientsAfterRecentDisinfectantChange();
-  }
-
   Future<void> _fetchPatientsAfterRecentDisinfectantChange() async {
     try {
       Map<String, List<Map<String, dynamic>>> tempmachineToPatientsMap = {};
-      Map<String, int> tempAfterChangeCounts = {
-        '1호기': 0,
-        '2호기': 0,
-        '3호기': 0,
-        '4호기': 0,
-        '5호기': 0,
-      };
+      Map<String, int> tempAfterChangeCounts = {};
 
-      for (String machineName in recentDisinfectantChangeDates.keys) {
+      // Initialize counts with 0 for all machines
+      for (var machineName in washingMachineNames) {
+        tempAfterChangeCounts[machineName] = 0;
+      }
+
+      for (String machineName in washingMachineNames) {
         String recentChangeDateStr =
             recentDisinfectantChangeDates[machineName] ?? '00/00';
         if (recentChangeDateStr != '00/00') {
@@ -1741,9 +1116,14 @@ class _WashingRoomState extends State<WashingRoom> with WidgetsBindingObserver {
       if (mounted) {
         setState(() {
           machineToPatientsMap = tempmachineToPatientsMap;
-          machineAfterChangeCounts = tempAfterChangeCounts;
         });
       }
+
+      // Update counts in SettingsProvider
+      Provider.of<SettingsProvider>(
+        context,
+        listen: false,
+      ).updateMachineAfterChangeCounts(tempAfterChangeCounts);
     } catch (e) {
       print('Error fetching patients: $e');
     }
@@ -1771,23 +1151,26 @@ class _WashingRoomState extends State<WashingRoom> with WidgetsBindingObserver {
               if (!tempmachineToPatientsMap.containsKey(machineName)) {
                 tempmachineToPatientsMap[machineName] = [];
               }
-              tempmachineToPatientsMap[machineName]!.add({
-                'name': patient.name,
-                'id': patient.id,
-                'gender': patient.gender,
-                'age': patient.age,
-                'examDate': DateFormat('yyyy-MM-dd').format(patient.examDate),
-                'examTime': patient.examTime,
-                'washingTime': washingTimeStr,
-                'uniqueDocName': patient.uniqueDocName,
-                'scope':
-                    examType == 'GSF'
-                        ? '위'
-                        : examType == 'CSF'
-                        ? '대장'
-                        : 'S상',
-                'scopeName': scopeName,
-              });
+              final data = tempmachineToPatientsMap[machineName];
+              if (data != null) {
+                data.add({
+                  'name': patient.name,
+                  'id': patient.id,
+                  'gender': patient.gender,
+                  'age': patient.age,
+                  'examDate': DateFormat('yyyy-MM-dd').format(patient.examDate),
+                  'examTime': patient.examTime,
+                  'washingTime': washingTimeStr,
+                  'uniqueDocName': patient.uniqueDocName,
+                  'scope':
+                      examType == 'GSF'
+                          ? '위'
+                          : examType == 'CSF'
+                          ? '대장'
+                          : 'S상',
+                  'scopeName': scopeName,
+                });
+              }
               tempAfterChangeCounts[machineName] =
                   (tempAfterChangeCounts[machineName] ?? 0) + 1;
             }
@@ -1801,407 +1184,44 @@ class _WashingRoomState extends State<WashingRoom> with WidgetsBindingObserver {
     processEndoscopy(patient.sig, 'sig');
   }
 
-  void _showDisinfectantChangePopup(
-    BuildContext context,
-    String machineName,
-  ) async {
-    Map<String, String> changeDates = {};
-    final Color oceanBlue = Color(0xFF1A5F7A);
-    final Color seafoamGreen = Color(0xFF57C5B6);
-
+  Future<void> _fetchMachineMaps() async {
     try {
-      DocumentSnapshot docSnapshot =
+      // Fetch GSF machines
+      DocumentSnapshot gsfDoc =
           await FirebaseFirestore.instance
-              .collection('washingMachines')
-              .doc(machineName)
+              .collection('settings')
+              .doc('GSFName')
               .get();
 
-      if (docSnapshot.exists) {
-        Map<String, dynamic>? rawData =
-            docSnapshot.data() as Map<String, dynamic>?;
-        if (rawData != null && rawData['disinfectantChangeDate'] != null) {
-          Map<String, dynamic> dates =
-              rawData['disinfectantChangeDate'] as Map<String, dynamic>;
-          changeDates = dates.map(
-            (key, value) => MapEntry(key, value.toString()),
-          );
+      if (gsfDoc.exists) {
+        Map<String, dynamic> gsfData = gsfDoc.data() as Map<String, dynamic>;
+        if (mounted) {
+          setState(() {
+            GSFmachine = Map<String, String>.from(gsfData['gsfMap'] ?? {});
+          });
         }
       }
 
-      List<String> sortedKeys =
-          changeDates.keys.toList()
-            ..sort((a, b) => DateTime.parse(b).compareTo(DateTime.parse(a)));
+      // Fetch CSF machines
+      DocumentSnapshot csfDoc =
+          await FirebaseFirestore.instance
+              .collection('settings')
+              .doc('CSFName')
+              .get();
 
-      DateTime selectedDate = DateTime.now();
-
-      showDialog(
-        context: context,
-        builder: (context) {
-          return StatefulBuilder(
-            builder: (context, setState) {
-              return Dialog(
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Container(
-                  width: MediaQuery.of(context).size.width * 0.9,
-                  constraints: BoxConstraints(
-                    maxHeight: MediaQuery.of(context).size.height * 0.7,
-                  ),
-                  padding: EdgeInsets.all(16),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        '$machineName 소독액 교환일',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: oceanBlue,
-                        ),
-                      ),
-                      SizedBox(height: 16),
-                      ElevatedButton.icon(
-                        icon: Icon(Icons.add, size: 18),
-                        label: Text('교환일 추가', style: TextStyle(fontSize: 14)),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: seafoamGreen,
-                          foregroundColor: Colors.white,
-                          padding: EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 8,
-                          ),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                        ),
-                        onPressed: () async {
-                          final settingsProvider =
-                              Provider.of<SettingsProvider>(
-                                context,
-                                listen: false,
-                              );
-                          final List<String> disinfectants =
-                              settingsProvider.washerNames;
-
-                          final String?
-                          selectedDisinfectant = await showDialog<String>(
-                            context: context,
-                            builder: (BuildContext context) {
-                              return Dialog(
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(16),
-                                ),
-                                elevation: 0,
-                                backgroundColor: Colors.transparent,
-                                child: Container(
-                                  padding: EdgeInsets.all(16),
-                                  decoration: BoxDecoration(
-                                    color: Colors.white,
-                                    shape: BoxShape.rectangle,
-                                    borderRadius: BorderRadius.circular(16),
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: Colors.black26,
-                                        blurRadius: 10.0,
-                                        offset: const Offset(0.0, 10.0),
-                                      ),
-                                    ],
-                                  ),
-                                  child: Column(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Text(
-                                        '소독액 선택',
-                                        style: TextStyle(
-                                          fontSize: 22,
-                                          fontWeight: FontWeight.w600,
-                                          color: oceanBlue,
-                                        ),
-                                      ),
-                                      SizedBox(height: 16),
-                                      Container(
-                                        constraints: BoxConstraints(
-                                          maxHeight:
-                                              MediaQuery.of(
-                                                context,
-                                              ).size.height *
-                                              0.4,
-                                        ),
-                                        child: SingleChildScrollView(
-                                          child: Column(
-                                            children:
-                                                disinfectants.map((
-                                                  disinfectant,
-                                                ) {
-                                                  return Padding(
-                                                    padding:
-                                                        const EdgeInsets.symmetric(
-                                                          vertical: 4.0,
-                                                        ),
-                                                    child: InkWell(
-                                                      onTap:
-                                                          () => Navigator.of(
-                                                            context,
-                                                          ).pop(disinfectant),
-                                                      child: Container(
-                                                        width: double.infinity,
-                                                        padding:
-                                                            EdgeInsets.symmetric(
-                                                              vertical: 12,
-                                                              horizontal: 16,
-                                                            ),
-                                                        decoration: BoxDecoration(
-                                                          color:
-                                                              Colors.blue[50],
-                                                          borderRadius:
-                                                              BorderRadius.circular(
-                                                                8,
-                                                              ),
-                                                          border: Border.all(
-                                                            color:
-                                                                Colors
-                                                                    .blue[200]!,
-                                                            width: 1,
-                                                          ),
-                                                        ),
-                                                        child: Text(
-                                                          disinfectant,
-                                                          style: TextStyle(
-                                                            fontSize: 16,
-                                                            color:
-                                                                Colors.black87,
-                                                          ),
-                                                          textAlign:
-                                                              TextAlign.center,
-                                                        ),
-                                                      ),
-                                                    ),
-                                                  );
-                                                }).toList(),
-                                          ),
-                                        ),
-                                      ),
-                                      SizedBox(height: 16),
-                                      TextButton(
-                                        onPressed:
-                                            () => Navigator.of(context).pop(),
-                                        child: Text(
-                                          '취소',
-                                          style: TextStyle(
-                                            fontSize: 16,
-                                            color: Colors.grey[600],
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              );
-                            },
-                          );
-
-                          if (selectedDisinfectant != null) {
-                            final DateTime? pickedDate = await showDatePicker(
-                              context: context,
-                              initialDate: selectedDate,
-                              firstDate: DateTime(2000),
-                              lastDate: DateTime(2101),
-                            );
-                            if (pickedDate != null) {
-                              final TimeOfDay? pickedTime =
-                                  await showTimePicker(
-                                    context: context,
-                                    initialTime: TimeOfDay.now(),
-                                  );
-                              if (pickedTime != null) {
-                                setState(() {
-                                  selectedDate = DateTime(
-                                    pickedDate.year,
-                                    pickedDate.month,
-                                    pickedDate.day,
-                                    pickedTime.hour,
-                                    pickedTime.minute,
-                                  );
-                                  String dateTimeKey =
-                                      selectedDate.toIso8601String();
-                                  changeDates[dateTimeKey] =
-                                      selectedDisinfectant;
-
-                                  // 정렬된 키 목록 업데이트
-                                  sortedKeys =
-                                      changeDates.keys.toList()..sort(
-                                        (a, b) => DateTime.parse(
-                                          b,
-                                        ).compareTo(DateTime.parse(a)),
-                                      );
-                                });
-
-                                // Firebase에 저장하고 데이터 새로고침
-                                await _saveDisinfectantChangeDate(
-                                  machineName,
-                                  selectedDate,
-                                  selectedDisinfectant,
-                                  Map<String, String>.from(changeDates),
-                                );
-                              }
-                            }
-                          }
-                        },
-                      ),
-                      SizedBox(height: 16),
-                      Flexible(
-                        child: ListView.builder(
-                          shrinkWrap: true,
-                          itemCount: sortedKeys.length,
-                          itemBuilder: (context, index) {
-                            String dateKey = sortedKeys[index];
-                            String? disinfectantType = changeDates[dateKey];
-                            if (disinfectantType == null)
-                              return SizedBox.shrink();
-
-                            DateTime dateTime = DateTime.parse(dateKey);
-                            String formattedDate = DateFormat(
-                              'yyyy-MM-dd HH:mm',
-                            ).format(dateTime);
-
-                            return Container(
-                              margin: EdgeInsets.symmetric(vertical: 4.0),
-                              decoration: BoxDecoration(
-                                color: Colors.grey[200],
-                                borderRadius: BorderRadius.circular(8),
-                                border: Border.all(color: Colors.grey[400]!),
-                              ),
-                              child: ListTile(
-                                title: Text(formattedDate),
-                                subtitle: Text(disinfectantType),
-                                trailing: IconButton(
-                                  icon: Icon(Icons.delete),
-                                  onPressed: () async {
-                                    bool confirmDelete =
-                                        await showDialog(
-                                          context: context,
-                                          builder: (BuildContext context) {
-                                            return AlertDialog(
-                                              title: Text('삭제 확인'),
-                                              content: Text(
-                                                '이 소독액 교환 기록을 삭제하시겠습니까?',
-                                              ),
-                                              actions: [
-                                                TextButton(
-                                                  child: Text('취소'),
-                                                  onPressed:
-                                                      () => Navigator.of(
-                                                        context,
-                                                      ).pop(false),
-                                                ),
-                                                TextButton(
-                                                  child: Text('삭제'),
-                                                  onPressed:
-                                                      () => Navigator.of(
-                                                        context,
-                                                      ).pop(true),
-                                                ),
-                                              ],
-                                            );
-                                          },
-                                        ) ??
-                                        false;
-
-                                    if (confirmDelete) {
-                                      setState(() {
-                                        changeDates.remove(dateKey);
-                                      });
-
-                                      // 빈 맵이면 null로 설정하여 필드 자체를 삭제
-                                      final dataToUpdate =
-                                          changeDates.isEmpty
-                                              ? {'disinfectantChangeDate': null}
-                                              : {
-                                                'disinfectantChangeDate':
-                                                    changeDates,
-                                              };
-
-                                      await FirebaseFirestore.instance
-                                          .collection('washingMachines')
-                                          .doc(machineName)
-                                          .set(dataToUpdate);
-
-                                      // 데이터 새로고침
-                                      await _fetchRecentDisinfectantChangeDates();
-                                      await _fetchWashingMachineData();
-
-                                      ScaffoldMessenger.of(
-                                        context,
-                                      ).showSnackBar(
-                                        SnackBar(
-                                          content: Text(
-                                            '소독액 교환일이 성공적으로 삭제되었습니다!',
-                                          ),
-                                        ),
-                                      );
-                                    }
-                                  },
-                                ),
-                              ),
-                            );
-                          },
-                        ),
-                      ),
-                      SizedBox(height: 16),
-                      Center(
-                        child: TextButton(
-                          onPressed: () => Navigator.of(context).pop(),
-                          child: Text(
-                            '닫기',
-                            style: TextStyle(fontSize: 16, color: Colors.blue),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              );
-            },
-          );
-        },
-      );
+      if (csfDoc.exists) {
+        Map<String, dynamic> csfData = csfDoc.data() as Map<String, dynamic>;
+        if (mounted) {
+          setState(() {
+            CSFmachine = Map<String, String>.from(csfData['csfMap'] ?? {});
+          });
+        }
+      }
     } catch (e) {
-      print('Error in _showDisinfectantChangePopup: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('소독액 교환일 데이터를 불러오는 중 오류가 발생했습니다.')),
-      );
-    }
-  }
-
-  Future<void> _saveDisinfectantChangeDate(
-    String machineName,
-    DateTime date,
-    String disinfectantName,
-    Map<String, String> changeDates,
-  ) async {
-    try {
-      // Firebase에 직접 업데이트
-      await FirebaseFirestore.instance
-          .collection('washingMachines')
-          .doc(machineName)
-          .set({
-            'disinfectantChangeDate': changeDates,
-          }); // SetOptions(merge: true) 제거하여 전체 문서를 덮어쓰기
-
-      // 데이터 새로고침
-      await _fetchRecentDisinfectantChangeDates();
-      await _fetchWashingMachineData();
-
+      print('Error fetching machine maps: $e');
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text('소독액 교환일이 성공적으로 업데이트되었습니다!')));
-    } catch (e) {
-      print('Error saving disinfectant change date: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('소독액 교환일 저장 중 오류가 발생했습니다: ${e.toString()}')),
-      );
+      ).showSnackBar(SnackBar(content: Text('기기 목록을 불러오는 중 오류가 발생했습니다.')));
     }
   }
 }

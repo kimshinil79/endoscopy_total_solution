@@ -13,8 +13,13 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 // import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:collection';
 import '../widgets/patient_card_CLOResult.dart';
+import '../widgets/clo_patient_list_dialog.dart';
+import '../widgets/exam_list_dialog.dart';
+import '../widgets/doctor_selection_dialog.dart';
+import '../widgets/room_selection_dialog.dart';
 //import '../widgets/text_form_examination_room.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+//import '../widgets/recording_button.dart';
 
 class ExaminationRoom extends StatefulWidget {
   @override
@@ -120,19 +125,6 @@ class _ExaminationRoomState extends State<ExaminationRoom>
   late SettingsProvider _settingsProvider;
 
   bool _isAuthorizedUser = false;
-
-  String getRoomDisplayName(String room) {
-    switch (room) {
-      case '1':
-        return '1번방';
-      case '2':
-        return '2번방';
-      case '3':
-        return '3번방';
-      default:
-        return room;
-    }
-  }
 
   Future<void> _selectDate(BuildContext context) async {
     final DateTime? picked = await showDatePicker(
@@ -243,7 +235,6 @@ class _ExaminationRoomState extends State<ExaminationRoom>
       setState(() {
         _dateRange = picked;
       });
-      _fetchCLOPatients();
     }
   }
 
@@ -312,295 +303,6 @@ class _ExaminationRoomState extends State<ExaminationRoom>
         );
       },
     );
-  }
-
-  void _showCLOPatientList(List<Patient> patients) {
-    int patientCount = patients.length;
-
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return StatefulBuilder(
-          builder: (BuildContext context, StateSetter setState) {
-            return Dialog(
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-              ),
-              elevation: 0,
-              backgroundColor: Colors.transparent,
-              child: Container(
-                padding: EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  shape: BoxShape.rectangle,
-                  borderRadius: BorderRadius.circular(16),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black26,
-                      blurRadius: 10.0,
-                      offset: const Offset(0.0, 10.0),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Row(
-                          children: [
-                            Text(
-                              'CLO 결과 미입력자',
-                              style: TextStyle(
-                                fontSize: 20,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.red[400],
-                              ),
-                            ),
-                            Container(
-                              margin: EdgeInsets.only(left: 8),
-                              padding: EdgeInsets.symmetric(
-                                horizontal: 8,
-                                vertical: 4,
-                              ),
-                              decoration: BoxDecoration(
-                                color: Colors.red[50],
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: Text(
-                                '$patientCount명',
-                                style: TextStyle(
-                                  color: Colors.red[400],
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                        IconButton(
-                          icon: Icon(Icons.close, color: Colors.grey[600]),
-                          onPressed: () => Navigator.of(context).pop(),
-                        ),
-                      ],
-                    ),
-                    SizedBox(height: 16),
-                    Container(
-                      decoration: BoxDecoration(
-                        color: Colors.grey[50],
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: Colors.grey[200]!),
-                      ),
-                      child: ListTile(
-                        onTap: () async {
-                          final DateTimeRange? picked =
-                              await showDateRangePicker(
-                                context: context,
-                                firstDate: DateTime(2000),
-                                lastDate: DateTime(2101),
-                                initialDateRange: _dateRange,
-                              );
-                          if (picked != null && picked != _dateRange) {
-                            _dateRange = picked;
-                            List<Patient> newPatients =
-                                await _fetchCLOPatients();
-                            setState(() {
-                              patients = newPatients;
-                              patientCount = patients.length;
-                            });
-                          }
-                        },
-                        leading: Icon(
-                          Icons.calendar_today,
-                          color: Colors.blue[400],
-                        ),
-                        title: Text(
-                          '검색 기간',
-                          style: TextStyle(
-                            color: Colors.grey[600],
-                            fontSize: 14,
-                          ),
-                        ),
-                        subtitle: Text(
-                          '${DateFormat('yyyy-MM-dd').format(_dateRange.start)} ~ ${DateFormat('yyyy-MM-dd').format(_dateRange.end)}',
-                          style: TextStyle(
-                            color: Colors.blue[800],
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        trailing: Icon(
-                          Icons.arrow_forward_ios,
-                          color: Colors.grey[400],
-                          size: 16,
-                        ),
-                      ),
-                    ),
-                    SizedBox(height: 16),
-                    Expanded(
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: Colors.grey[50],
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: Colors.grey[200]!),
-                        ),
-                        child:
-                            patients.isEmpty
-                                ? Center(
-                                  child: Column(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      Icon(
-                                        Icons.check_circle_outline,
-                                        color: Colors.green[400],
-                                        size: 48,
-                                      ),
-                                      SizedBox(height: 16),
-                                      Text(
-                                        'CLO 결과 미입력자가 없습니다',
-                                        style: TextStyle(
-                                          color: Colors.grey[600],
-                                          fontSize: 16,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                )
-                                : ListView.builder(
-                                  shrinkWrap: true,
-                                  itemCount: patients.length,
-                                  itemBuilder: (context, index) {
-                                    return Container(
-                                      margin: EdgeInsets.symmetric(
-                                        horizontal: 8,
-                                        vertical: 4,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        color: Colors.white,
-                                        borderRadius: BorderRadius.circular(12),
-                                        boxShadow: [
-                                          BoxShadow(
-                                            color: Colors.grey.withOpacity(0.1),
-                                            spreadRadius: 1,
-                                            blurRadius: 3,
-                                            offset: Offset(0, 1),
-                                          ),
-                                        ],
-                                      ),
-                                      child: PatientCard(
-                                        key: ValueKey(
-                                          patients[index].uniqueDocName,
-                                        ),
-                                        patient: patients[index],
-                                        onSave: (
-                                          patient,
-                                          result,
-                                          resetState,
-                                        ) async {
-                                          await _saveCLOResult(patient, result);
-                                          if (result == '+' || result == '-') {
-                                            setState(() {
-                                              patients.removeAt(index);
-                                              patientCount = patients.length;
-                                            });
-                                          } else {
-                                            resetState();
-                                          }
-                                        },
-                                        onPatientSelect: (selectedPatient) {
-                                          _patientProvider?.setPatient(
-                                            selectedPatient,
-                                          );
-                                          Navigator.of(context).pop();
-                                        },
-                                      ),
-                                    );
-                                  },
-                                ),
-                      ),
-                    ),
-                    SizedBox(height: 16),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.end,
-                      children: [
-                        TextButton(
-                          onPressed: () {
-                            Navigator.of(context).pop();
-                          },
-                          child: Text(
-                            '닫기',
-                            style: TextStyle(
-                              color: Colors.grey[600],
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            );
-          },
-        );
-      },
-    );
-  }
-
-  Future<List<Patient>> _fetchCLOPatients() async {
-    try {
-      QuerySnapshot querySnapshot =
-          await FirebaseFirestore.instance
-              .collection('patients')
-              .where(
-                'examDate',
-                isGreaterThanOrEqualTo: DateFormat(
-                  'yyyy-MM-dd',
-                ).format(_dateRange.start),
-              )
-              .where(
-                'examDate',
-                isLessThanOrEqualTo: DateFormat(
-                  'yyyy-MM-dd',
-                ).format(_dateRange.end),
-              )
-              .get();
-
-      List<Patient> cloPatients =
-          querySnapshot.docs
-              .map((doc) => Patient.fromMap(doc.data() as Map<String, dynamic>))
-              .where(
-                (patient) =>
-                    patient.GSF != null &&
-                    patient.GSF!.examDetail.CLO == true &&
-                    (patient.GSF!.examDetail.CLOResult == null ||
-                        patient.GSF!.examDetail.CLOResult!.isEmpty),
-              )
-              .toList();
-
-      print('Found ${cloPatients.length} CLO patients'); // 디버깅을 위한 로그
-
-      return cloPatients;
-    } catch (e) {
-      print('Error fetching CLO patients: $e'); // 에러 로깅
-      return [];
-    }
-  }
-
-  Future<void> _saveCLOResult(Patient patient, String result) async {
-    try {
-      await FirebaseFirestore.instance
-          .collection('patients')
-          .doc(patient.uniqueDocName)
-          .update({'GSF.examDetail.CLOResult': result});
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('CLO 결과가 성공적으로 저장되었습니다.')));
-    } catch (e) {
-      print('Error saving CLO result: $e');
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('CLO 결과 저장 중 오류가 발생했습니다.')));
-    }
   }
 
   @override
@@ -892,529 +594,6 @@ class _ExaminationRoomState extends State<ExaminationRoom>
     _patientProvider?.setPatient(null);
   }
 
-  showExamPopup(BuildContext context, DateTime initialDate) async {
-    DateTime currentDate = initialDate;
-
-    Future<void> updatePatientList() async {
-      List<Patient> patients = await fetchPatientsByDate(currentDate);
-      List<Patient> emptyMachinesPatients =
-          patients.where((p) {
-            bool isEmpty = false;
-            if (p.GSF != null && p.GSF!.scopes.isEmpty) isEmpty = true;
-            if (p.CSF != null && p.CSF!.scopes.isEmpty) isEmpty = true;
-            if (p.sig != null && p.sig!.scopes.isEmpty) isEmpty = true;
-            return isEmpty;
-          }).toList();
-      List<Patient> filledMachinesPatients =
-          patients.where((p) {
-            bool isFilled = false;
-            if (p.GSF != null && p.GSF!.scopes.isNotEmpty && p.name != '기기세척')
-              isFilled = true;
-            if (p.CSF != null && p.CSF!.scopes.isNotEmpty && p.name != '기기세척')
-              isFilled = true;
-            if (p.sig != null && p.sig!.scopes.isNotEmpty && p.name != '기기세척')
-              isFilled = true;
-            return isFilled;
-          }).toList();
-
-      int totalPatients =
-          emptyMachinesPatients.length + filledMachinesPatients.length;
-
-      // 동적 높이 계산
-      double calculateDialogHeight() {
-        double baseHeight = 200.0; // 기본 높이 (헤더, 버튼 등)
-        double patientCardHeight = 120.0; // 각 환자 카드의 높이
-        double maxHeight =
-            MediaQuery.of(context).size.height * 0.95; // 최대 높이 (화면의 85%)
-
-        double calculatedHeight =
-            baseHeight +
-            (emptyMachinesPatients.length * patientCardHeight) +
-            (filledMachinesPatients.length * patientCardHeight);
-
-        return calculatedHeight > maxHeight ? maxHeight : calculatedHeight;
-      }
-
-      showDialog(
-        context: context,
-        builder: (BuildContext context) {
-          return StatefulBuilder(
-            builder: (context, setState) {
-              return Dialog(
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                elevation: 0,
-                backgroundColor: Colors.transparent,
-                child: Container(
-                  height: calculateDialogHeight(),
-                  padding: EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    shape: BoxShape.rectangle,
-                    borderRadius: BorderRadius.circular(16),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black26,
-                        blurRadius: 10.0,
-                        offset: const Offset(0.0, 10.0),
-                      ),
-                    ],
-                  ),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            '검사 리스트(${totalPatients}명)',
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          Row(
-                            children: [
-                              Text(
-                                DateFormat('yy/MM/dd').format(currentDate),
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              IconButton(
-                                icon: Icon(Icons.calendar_today),
-                                onPressed: () async {
-                                  final DateTime? picked = await showDatePicker(
-                                    context: context,
-                                    initialDate: currentDate,
-                                    firstDate: DateTime(2000),
-                                    lastDate: DateTime(2101),
-                                    locale: const Locale('ko', 'KR'),
-                                  );
-                                  if (picked != null && picked != currentDate) {
-                                    setState(() {
-                                      currentDate = picked;
-                                    });
-                                    Navigator.of(context).pop();
-                                    updatePatientList();
-                                  }
-                                },
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                      SizedBox(height: 16),
-                      Expanded(
-                        child: SingleChildScrollView(
-                          child: Column(
-                            children: [
-                              if (emptyMachinesPatients.isNotEmpty)
-                                GridView.count(
-                                  crossAxisCount: 3,
-                                  shrinkWrap: true,
-                                  physics: NeverScrollableScrollPhysics(),
-                                  childAspectRatio: 0.7,
-                                  children:
-                                      emptyMachinesPatients
-                                          .map(
-                                            (patient) => _buildPatientCard(
-                                              context,
-                                              patient,
-                                              currentDate,
-                                              Colors.blueAccent[100]!,
-                                              true,
-                                            ),
-                                          )
-                                          .toList(),
-                                ),
-                              if (emptyMachinesPatients.isNotEmpty &&
-                                  filledMachinesPatients.isNotEmpty)
-                                Divider(),
-                              ...filledMachinesPatients.map(
-                                (patient) => _buildPatientCard(
-                                  context,
-                                  patient,
-                                  currentDate,
-                                  Colors.white30!,
-                                  false,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                      SizedBox(height: 16),
-                      TextButton(
-                        onPressed: () {
-                          Navigator.of(context).pop();
-                        },
-                        child: Text(
-                          '닫기',
-                          style: TextStyle(
-                            color: Colors.blue,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              );
-            },
-          );
-        },
-      );
-    }
-
-    updatePatientList();
-  }
-
-  String _truncateName(String name, int maxLength) {
-    if (name.length <= 4) {
-      // 4글자 이하면 그대로 반환
-      return name;
-    }
-    return '${name.substring(0, 4)}...'; // 4글자 초과시 4글자 + ... 처리
-  }
-
-  Widget _buildPatientCard(
-    BuildContext context,
-    Patient patient,
-    DateTime date,
-    Color backgroundColor,
-    bool isEmptyMachine,
-  ) {
-    if (isEmptyMachine) {
-      String truncatedName = _truncateName(patient.name, 4);
-      String doctorInfo =
-          patient.doctor != null && patient.doctor != '의사'
-              ? 'by ${patient.doctor}'
-              : '';
-
-      return Card(
-        elevation: 3,
-        margin: EdgeInsets.all(4),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-          side: BorderSide(color: Colors.blue.withOpacity(0.3), width: 1),
-        ),
-        child: InkWell(
-          onTap: () {
-            _handleCardTap(context, patient);
-          },
-          borderRadius: BorderRadius.circular(12),
-          child: Container(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [Colors.white, Colors.blue.withOpacity(0.1)],
-              ),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8.0,
-                      vertical: 4.0,
-                    ),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(
-                          truncatedName,
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 16,
-                            color: Colors.blue[700],
-                          ),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        SizedBox(height: 2),
-                        Text(
-                          patient.id,
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.grey[600],
-                          ),
-                        ),
-                        SizedBox(height: 1),
-                        Text(
-                          '${patient.gender}/${patient.age}',
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: Colors.grey[700],
-                          ),
-                        ),
-                        if (doctorInfo.isNotEmpty)
-                          Padding(
-                            padding: EdgeInsets.only(top: 1),
-                            child: Text(
-                              doctorInfo,
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: Colors.blue[300],
-                              ),
-                            ),
-                          ),
-                      ],
-                    ),
-                  ),
-                ),
-                Container(
-                  decoration: BoxDecoration(
-                    border: Border(
-                      top: BorderSide(
-                        color: Colors.blue.withOpacity(0.2),
-                        width: 1,
-                      ),
-                    ),
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      IconButton(
-                        icon: Icon(
-                          Icons.edit_outlined,
-                          color: Colors.blue[600],
-                          size: 18,
-                        ),
-                        onPressed:
-                            () => _showEditPatientPopup(context, patient, date),
-                        padding: EdgeInsets.only(right: -2),
-                        constraints: BoxConstraints(),
-                      ),
-                      IconButton(
-                        icon: Icon(
-                          Icons.delete_outline,
-                          color: Colors.red[300],
-                          size: 18,
-                        ),
-                        onPressed:
-                            () =>
-                                _showDeleteConfirmation(context, patient, date),
-                        padding: EdgeInsets.only(left: -2),
-                        constraints: BoxConstraints(),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      );
-    } else {
-      String doctorInfo =
-          patient.doctor != null && patient.doctor != '의사'
-              ? 'by ${patient.doctor}'
-              : '';
-
-      return Container(
-        margin: EdgeInsets.symmetric(vertical: 6, horizontal: 8),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.grey.withOpacity(0.15),
-              spreadRadius: 1,
-              blurRadius: 5,
-              offset: Offset(0, 2),
-            ),
-          ],
-          border: Border.all(color: Colors.blue.withOpacity(0.2), width: 1),
-        ),
-        child: Material(
-          color: Colors.transparent,
-          child: InkWell(
-            onTap: () {
-              _handleCardTap(context, patient);
-            },
-            borderRadius: BorderRadius.circular(12),
-            child: Padding(
-              padding: const EdgeInsets.all(12.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Expanded(
-                        child: Row(
-                          children: [
-                            Text(
-                              _truncateName(
-                                patient.name,
-                                4,
-                              ), // 여기도 maxLength 파라미터 유지
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 16,
-                                color: Colors.blue[700],
-                              ),
-                            ),
-                            SizedBox(width: 8),
-                            Text(
-                              patient.id,
-                              style: TextStyle(
-                                fontSize: 14,
-                                color: Colors.grey[600],
-                              ),
-                            ),
-                            SizedBox(width: 8),
-                            Container(
-                              padding: EdgeInsets.symmetric(
-                                horizontal: 8,
-                                vertical: 2,
-                              ),
-                              decoration: BoxDecoration(
-                                color: Colors.blue.withOpacity(0.1),
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: Text(
-                                '${patient.gender}/${patient.age}',
-                                style: TextStyle(
-                                  color: Colors.blue[700],
-                                  fontSize: 13,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                  if (doctorInfo.isNotEmpty) ...[
-                    SizedBox(height: 4),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          doctorInfo,
-                          style: TextStyle(
-                            color: Colors.blue[300],
-                            fontSize: 13,
-                          ),
-                        ),
-                        Row(
-                          children: [
-                            IconButton(
-                              icon: Icon(
-                                Icons.edit_outlined,
-                                color: Colors.blue[600],
-                                size: 18,
-                              ),
-                              onPressed:
-                                  () => _showEditPatientPopup(
-                                    context,
-                                    patient,
-                                    date,
-                                  ),
-                              padding: EdgeInsets.zero,
-                              constraints: BoxConstraints(),
-                            ),
-                            IconButton(
-                              icon: Icon(
-                                Icons.delete_outline,
-                                color: Colors.red[300],
-                                size: 18,
-                              ),
-                              onPressed:
-                                  () => _showDeleteConfirmation(
-                                    context,
-                                    patient,
-                                    date,
-                                  ),
-                              padding: EdgeInsets.zero,
-                              constraints: BoxConstraints(),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ],
-                  SizedBox(height: 8),
-                  Text(
-                    _buildSubtitle(patient),
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: Colors.grey[600],
-                      height: 1.3,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      );
-    }
-  }
-
-  void _handleCardTap(BuildContext context, Patient patient) {
-    print('Handling card tap for patient: ${patient.name}');
-    print('Patient provider is null: ${_patientProvider == null}');
-
-    _loadPreferences()
-        .then((prefs) {
-          if (!context.mounted) {
-            print('Context is not mounted');
-            return;
-          }
-
-          if (patient.Room == null ||
-              patient.Room == '검사실' ||
-              patient.doctor == null ||
-              patient.doctor == '의사') {
-            patient.Room = prefs['room'] ?? '검사실';
-            patient.doctor = prefs['doctor'] ?? '의사';
-          }
-
-          if (!context.mounted) {
-            print('Context is not mounted after preferences');
-            return;
-          }
-
-          if (_patientProvider == null) {
-            print('Patient provider is null, cannot set patient');
-            return;
-          }
-
-          try {
-            _patientProvider!.setPatient(patient);
-            print('Patient set successfully');
-          } catch (e) {
-            print('Error setting patient: $e');
-          }
-
-          if (context.mounted) {
-            try {
-              setState(() {
-                selectedRoom = patient.Room ?? '검사실';
-                selectedDoctor = patient.doctor ?? '의사';
-              });
-              print('UI updated successfully');
-            } catch (e) {
-              print('Error updating UI: $e');
-            }
-          }
-
-          if (context.mounted) {
-            Navigator.of(context).pop();
-          }
-        })
-        .catchError((error) {
-          print('Error in _handleCardTap: $error');
-        });
-  }
-
   void _showDeleteConfirmation(
     BuildContext context,
     Patient patient,
@@ -1521,7 +700,15 @@ class _ExaminationRoomState extends State<ExaminationRoom>
                             .delete();
                         Navigator.of(context).pop();
                         Navigator.of(context).pop();
-                        showExamPopup(context, date);
+                        ExamListDialog.show(
+                          context,
+                          date,
+                          fetchPatientsByDate,
+                          _patientProvider,
+                          _showEditPatientPopup,
+                          _showDeleteConfirmation,
+                          _loadPreferences,
+                        );
                         countTodayExam();
                       },
                       style: ElevatedButton.styleFrom(
@@ -1552,60 +739,6 @@ class _ExaminationRoomState extends State<ExaminationRoom>
         );
       },
     );
-  }
-
-  String _buildSubtitle(Patient patient) {
-    StringBuffer subtitle = StringBuffer();
-
-    if (patient.GSF != null) {
-      subtitle.write(
-        '위(${patient.GSF!.gumjinOrNot}, ${patient.GSF!.sleepOrNot}',
-      );
-      if (patient.GSF!.scopes.isNotEmpty) {
-        subtitle.write(', ${patient.GSF!.scopes.keys.join(', ')}');
-      }
-      if (patient.GSF!.examDetail.Bx != '없음') {
-        subtitle.write(', Bx:${patient.GSF!.examDetail.Bx}');
-      }
-      if (patient.GSF!.examDetail.CLO!) {
-        subtitle.write(', CLO');
-      }
-      subtitle.write(')');
-    }
-
-    if (patient.CSF != null) {
-      if (subtitle.isNotEmpty) subtitle.write('\n');
-      subtitle.write(
-        '대장(${patient.CSF!.gumjinOrNot}, ${patient.CSF!.sleepOrNot}',
-      );
-      if (patient.CSF!.scopes.isNotEmpty) {
-        subtitle.write(', ${patient.CSF!.scopes.keys.join(', ')}');
-      }
-      if (patient.CSF!.examDetail.Bx != '없음') {
-        subtitle.write(', Bx:${patient.CSF!.examDetail.Bx}');
-      }
-      if (patient.CSF!.examDetail.polypectomy != '없음') {
-        subtitle.write(', polypectomy:${patient.CSF!.examDetail.polypectomy}');
-      }
-      subtitle.write(')');
-    }
-
-    if (patient.sig != null) {
-      if (subtitle.isNotEmpty) subtitle.write('\n');
-      subtitle.write('sig(');
-      if (patient.sig!.examDetail.Bx != '없음') {
-        subtitle.write('Bx:${patient.sig!.examDetail.Bx}');
-      }
-      if (patient.sig!.examDetail.polypectomy != '없음') {
-        if (subtitle.isNotEmpty && !subtitle.toString().endsWith('(')) {
-          subtitle.write(', ');
-        }
-        subtitle.write('polypectomy:${patient.sig!.examDetail.polypectomy}');
-      }
-      subtitle.write(')');
-    }
-
-    return subtitle.toString();
   }
 
   String formatTimeOfDay(TimeOfDay time) {
@@ -1879,200 +1012,6 @@ class _ExaminationRoomState extends State<ExaminationRoom>
             ),
           ],
           actionsPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          backgroundColor: Colors.white,
-          elevation: 5,
-        );
-      },
-    );
-  }
-
-  void _showRoomSelectionDialog() {
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(15),
-          ),
-          title: Text(
-            '검사실 선택',
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-              color: Colors.black87,
-            ),
-          ),
-          content: Container(
-            width: double.maxFinite,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children:
-                  rooms.map((String room) {
-                    bool isSelected = selectedRoom == room;
-                    return Container(
-                      margin: EdgeInsets.symmetric(vertical: 4),
-                      child: InkWell(
-                        onTap: () {
-                          setState(() {
-                            selectedRoom = room;
-                          });
-                          Navigator.of(context).pop(); // 선택 시 팝업 닫기
-                        },
-                        child: Container(
-                          padding: EdgeInsets.symmetric(
-                            vertical: 12,
-                            horizontal: 16,
-                          ),
-                          decoration: BoxDecoration(
-                            color:
-                                isSelected
-                                    ? Colors.blue.withOpacity(0.1)
-                                    : Colors.white,
-                            borderRadius: BorderRadius.circular(10),
-                            border: Border.all(
-                              color:
-                                  isSelected ? Colors.blue : Colors.grey[300]!,
-                              width: isSelected ? 2 : 1,
-                            ),
-                          ),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text(
-                                getRoomDisplayName(room),
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight:
-                                      isSelected
-                                          ? FontWeight.bold
-                                          : FontWeight.normal,
-                                  color:
-                                      isSelected ? Colors.blue : Colors.black87,
-                                ),
-                              ),
-                              if (isSelected)
-                                Icon(
-                                  Icons.check_circle,
-                                  color: Colors.blue,
-                                  size: 20,
-                                ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    );
-                  }).toList(),
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: Text(
-                '닫기',
-                style: TextStyle(
-                  color: Colors.grey[600],
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ),
-          ],
-          backgroundColor: Colors.white,
-          elevation: 5,
-        );
-      },
-    );
-  }
-
-  void _showDoctorSelectionDialog() {
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(15),
-          ),
-          title: Text(
-            '의사 선택',
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-              color: Colors.black87,
-            ),
-          ),
-          content: Container(
-            width: double.maxFinite,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children:
-                  doctors.map((String doctor) {
-                    bool isSelected = selectedDoctor == doctor;
-                    return Container(
-                      margin: EdgeInsets.symmetric(vertical: 4),
-                      child: InkWell(
-                        onTap: () {
-                          setState(() {
-                            selectedDoctor = doctor;
-                          });
-                          Navigator.of(context).pop(); // 선택 시 팝업 닫기
-                        },
-                        child: Container(
-                          padding: EdgeInsets.symmetric(
-                            vertical: 12,
-                            horizontal: 16,
-                          ),
-                          decoration: BoxDecoration(
-                            color:
-                                isSelected
-                                    ? Colors.blue.withOpacity(0.1)
-                                    : Colors.white,
-                            borderRadius: BorderRadius.circular(10),
-                            border: Border.all(
-                              color:
-                                  isSelected ? Colors.blue : Colors.grey[300]!,
-                              width: isSelected ? 2 : 1,
-                            ),
-                          ),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text(
-                                doctor,
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight:
-                                      isSelected
-                                          ? FontWeight.bold
-                                          : FontWeight.normal,
-                                  color:
-                                      isSelected ? Colors.blue : Colors.black87,
-                                ),
-                              ),
-                              if (isSelected)
-                                Icon(
-                                  Icons.check_circle,
-                                  color: Colors.blue,
-                                  size: 20,
-                                ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    );
-                  }).toList(),
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: Text(
-                '닫기',
-                style: TextStyle(
-                  color: Colors.grey[600],
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ),
-          ],
           backgroundColor: Colors.white,
           elevation: 5,
         );
@@ -2473,7 +1412,15 @@ class _ExaminationRoomState extends State<ExaminationRoom>
 
                                 Navigator.of(context).pop();
                                 Navigator.of(context).pop();
-                                showExamPopup(context, date);
+                                ExamListDialog.show(
+                                  context,
+                                  date,
+                                  fetchPatientsByDate,
+                                  _patientProvider,
+                                  _showEditPatientPopup,
+                                  _showDeleteConfirmation,
+                                  _loadPreferences,
+                                );
                               } catch (e) {
                                 print("Error updating patient: $e");
                                 ScaffoldMessenger.of(context).showSnackBar(
@@ -2691,39 +1638,7 @@ class _ExaminationRoomState extends State<ExaminationRoom>
                                 ),
                               ),
                             ),
-                            if (_isAuthorizedUser)
-                              Padding(
-                                padding: const EdgeInsets.only(left: 8.0),
-                                child: ElevatedButton(
-                                  onPressed: () {
-                                    print('녹음 버튼 클릭');
-                                  },
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: Colors.white,
-                                    foregroundColor: Colors.black,
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(30),
-                                      side: BorderSide(
-                                        color: Colors.green,
-                                        width: 0.5,
-                                      ),
-                                    ),
-                                  ),
-                                  child: Row(
-                                    children: [
-                                      Icon(Icons.mic, color: Colors.green),
-                                      SizedBox(width: 4),
-                                      Text(
-                                        '녹음',
-                                        style: TextStyle(
-                                          fontWeight: FontWeight.bold,
-                                          color: Colors.green,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
+                            //RecordingButton(),
                           ],
                         ),
                         Row(
@@ -2732,8 +1647,20 @@ class _ExaminationRoomState extends State<ExaminationRoom>
                             ElevatedButton(
                               onPressed: () async {
                                 List<Patient> cloPatients =
-                                    await _fetchCLOPatients();
-                                _showCLOPatientList(cloPatients);
+                                    await CLOPatientListDialog.fetchCLOPatients(
+                                      _dateRange,
+                                    );
+                                CLOPatientListDialog.show(
+                                  context,
+                                  cloPatients,
+                                  _dateRange,
+                                  (DateTimeRange newRange) {
+                                    setState(() {
+                                      _dateRange = newRange;
+                                    });
+                                  },
+                                  _patientProvider,
+                                );
                               },
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: Colors.white,
@@ -2754,7 +1681,15 @@ class _ExaminationRoomState extends State<ExaminationRoom>
                             ),
                             ElevatedButton(
                               onPressed: () {
-                                showExamPopup(context, DateTime.now());
+                                ExamListDialog.show(
+                                  context,
+                                  DateTime.now(),
+                                  fetchPatientsByDate,
+                                  _patientProvider,
+                                  _showEditPatientPopup,
+                                  _showDeleteConfirmation,
+                                  _loadPreferences,
+                                );
                               },
                               style: ElevatedButton.styleFrom(
                                 shape: RoundedRectangleBorder(
@@ -3005,7 +1940,18 @@ class _ExaminationRoomState extends State<ExaminationRoom>
                             Container(
                               height: 40,
                               child: ElevatedButton(
-                                onPressed: _showRoomSelectionDialog,
+                                onPressed: () {
+                                  RoomSelectionDialog.show(
+                                    context,
+                                    rooms,
+                                    selectedRoom,
+                                    (String room) {
+                                      setState(() {
+                                        selectedRoom = room;
+                                      });
+                                    },
+                                  );
+                                },
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor: Colors.white,
                                   shape: RoundedRectangleBorder(
@@ -3019,7 +1965,9 @@ class _ExaminationRoomState extends State<ExaminationRoom>
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
                                     Text(
-                                      getRoomDisplayName(selectedRoom),
+                                      RoomSelectionDialog.getRoomDisplayName(
+                                        selectedRoom,
+                                      ),
                                       style: TextStyle(
                                         color: Colors.blueAccent,
                                         fontWeight: FontWeight.bold,
@@ -3033,7 +1981,18 @@ class _ExaminationRoomState extends State<ExaminationRoom>
                             Container(
                               height: 40,
                               child: ElevatedButton(
-                                onPressed: _showDoctorSelectionDialog,
+                                onPressed: () {
+                                  DoctorSelectionDialog.show(
+                                    context,
+                                    doctors,
+                                    selectedDoctor,
+                                    (String doctor) {
+                                      setState(() {
+                                        selectedDoctor = doctor;
+                                      });
+                                    },
+                                  );
+                                },
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor: Colors.white,
                                   shape: RoundedRectangleBorder(

@@ -974,7 +974,6 @@ class _SettingsPageState extends State<SettingsPage> {
                       ),
                     ),
                     ElevatedButton.icon(
-                      icon: Icon(Icons.close),
                       label: Text('취소'),
                       onPressed: () => Navigator.of(context).pop(),
                       style: ElevatedButton.styleFrom(
@@ -1021,19 +1020,19 @@ class _SettingsPageState extends State<SettingsPage> {
       case 'gsf':
         docName = 'GSFName';
         mapField = 'gsfMap';
-        title = '위 Scopes 편집';
+        title = 'Gastroscopy Scopes 편집';
         buttonColor = Colors.red;
         break;
       case 'csf':
         docName = 'CSFName';
         mapField = 'csfMap';
-        title = '대장 Scopes 편집';
+        title = 'Colonoscopy Scopes 편집';
         buttonColor = Colors.teal;
         break;
       case 'sig':
         docName = 'sigName';
         mapField = 'sigMap';
-        title = 'S상 Scopes 편집';
+        title = 'Sigmoidoscopy Scopes 편집';
         buttonColor = Colors.indigo;
         break;
       default:
@@ -1859,6 +1858,17 @@ class _SettingsPageState extends State<SettingsPage> {
         backgroundColor: Colors.white,
         elevation: 0,
         iconTheme: IconThemeData(color: Colors.black87),
+        actions: [
+          TextButton.icon(
+            icon: Icon(Icons.logout, size: 18),
+            label: Text('로그아웃'),
+            onPressed: () async {
+              await FirebaseAuth.instance.signOut();
+              Navigator.of(context).pushReplacementNamed('/');
+            },
+            style: TextButton.styleFrom(foregroundColor: Color(0xFF5C6BC0)),
+          ),
+        ],
       ),
       body: Container(
         decoration: BoxDecoration(
@@ -1873,115 +1883,510 @@ class _SettingsPageState extends State<SettingsPage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              _buildSettingsCard(
-                context,
-                '의사 명단 편집',
-                Icons.people,
-                Colors.blue,
-                () {
-                  _editDoctorList(context);
-                },
-              ),
-              _buildSettingsCard(
-                context,
-                '소독 실무자 편집',
-                Icons.shower_outlined,
-                Colors.green,
-                () {
-                  _editWashingRoomPeople(context);
-                },
-              ),
-              _buildSettingsCard(
-                context,
-                '검사실 편집',
-                Icons.meeting_room,
-                Colors.orange,
-                () {
-                  _editRoomList(context);
-                },
-              ),
-              _buildSettingsCard(
-                context,
-                '세척기 편집',
-                Icons.local_laundry_service_outlined,
-                Colors.purple,
-                () {
-                  _editWashingMachineList(context);
-                },
-              ),
-              _buildSettingsCard(
-                context,
-                '위 Scopes 편집',
-                Icons.gesture,
-                Colors.red,
-                () {
-                  _editScopeList(context, 'gsf');
-                },
-              ),
-              _buildSettingsCard(
-                context,
-                '대장 Scopes 편집',
-                Icons.gesture,
-                Colors.teal,
-                () {
-                  _editScopeList(context, 'csf');
-                },
-              ),
-              _buildSettingsCard(
-                context,
-                'S상 Scopes 편집',
-                Icons.gesture,
-                Colors.indigo,
-                () {
-                  _editScopeList(context, 'sig');
-                },
-              ),
-              SizedBox(height: 10),
-              _buildSettingsCard(
-                context,
-                '소독액 편집',
-                Icons.sanitizer,
-                Colors.brown,
-                () {
-                  _editDisinfectantList(context);
-                },
-              ),
-              SizedBox(height: 10),
-
-              ElevatedButton(
-                child: Text(
-                  '로그아웃',
-                  style: TextStyle(fontSize: 16, color: Colors.white),
-                ),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.red,
-                  padding: EdgeInsets.symmetric(vertical: 15),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
+              Row(
+                children: [
+                  Expanded(
+                    child: _buildSettingsCard(
+                      context,
+                      '의사 명단',
+                      Icons.people,
+                      Colors.blue,
+                      () {
+                        _editDoctorList(context);
+                      },
+                    ),
                   ),
-                ),
-                onPressed: () async {
-                  await FirebaseAuth.instance.signOut();
-                  Navigator.of(context).pushReplacementNamed('/');
-                },
+                  SizedBox(width: 8),
+                  Expanded(
+                    child: _buildSettingsCard(
+                      context,
+                      '소독 실무자',
+                      Icons.shower_outlined,
+                      Colors.green,
+                      () {
+                        _editWashingRoomPeople(context);
+                      },
+                    ),
+                  ),
+                ],
               ),
-              //SizedBox(height: 20),
-              // ElevatedButton(
-              //   onPressed: () => _finalUploadFromJson(context),
-              //   child: Text('JSON에서 최종 업로드'),
-              //   style: ElevatedButton.styleFrom(
-              //     backgroundColor: Colors.green,
-              //     foregroundColor: Colors.white,
-              //     padding: EdgeInsets.symmetric(vertical: 12),
-              //     shape: RoundedRectangleBorder(
-              //       borderRadius: BorderRadius.circular(8),
-              //     ),
-              //   ),
-              // ),
+              Row(
+                children: [
+                  Expanded(
+                    child: _buildSettingsCard(
+                      context,
+                      '검사실',
+                      Icons.meeting_room,
+                      Colors.orange,
+                      () {
+                        _editRoomList(context);
+                      },
+                    ),
+                  ),
+                  SizedBox(width: 8),
+                  Expanded(
+                    child: _buildSettingsCard(
+                      context,
+                      '세척기',
+                      Icons.local_laundry_service_outlined,
+                      Colors.purple,
+                      () {
+                        _editWashingMachineList(context);
+                      },
+                    ),
+                  ),
+                ],
+              ),
+              Row(
+                children: [
+                  Expanded(
+                    child: _buildSettingsCard(
+                      context,
+                      'Gastroscopy',
+                      Icons.gesture,
+                      Colors.red,
+                      () {
+                        _editScopeList(context, 'gsf');
+                      },
+                    ),
+                  ),
+                  SizedBox(width: 8),
+                  Expanded(
+                    child: _buildSettingsCard(
+                      context,
+                      'Colonoscopy',
+                      Icons.gesture,
+                      Colors.teal,
+                      () {
+                        _editScopeList(context, 'csf');
+                      },
+                    ),
+                  ),
+                ],
+              ),
+              Row(
+                children: [
+                  Expanded(
+                    child: _buildSettingsCard(
+                      context,
+                      'Sigmoidoscopy',
+                      Icons.gesture,
+                      Colors.indigo,
+                      () {
+                        _editScopeList(context, 'sig');
+                      },
+                    ),
+                  ),
+                  SizedBox(width: 8),
+                  Expanded(
+                    child: _buildSettingsCard(
+                      context,
+                      '소독액',
+                      Icons.sanitizer,
+                      Colors.brown,
+                      () {
+                        _editDisinfectantList(context);
+                      },
+                    ),
+                  ),
+                ],
+              ),
+              Row(
+                children: [
+                  Expanded(
+                    child: _buildSettingsCard(
+                      context,
+                      '힘 내             ',
+                      Icons.favorite,
+                      Colors.pink,
+                      () {
+                        _showEncouragingCommentsDialog(context);
+                      },
+                    ),
+                  ),
+                ],
+              ),
+              SizedBox(height: 10),
             ],
           ),
         ),
       ),
+    );
+  }
+
+  void _showEncouragingCommentsDialog(BuildContext context) async {
+    final settingsProvider = Provider.of<SettingsProvider>(
+      context,
+      listen: false,
+    );
+    TextEditingController newCommentController = TextEditingController();
+
+    // Firebase에서 최신 데이터 로드
+    await settingsProvider.loadSettings();
+
+    if (!context.mounted) return;
+
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return Dialog(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20),
+              ),
+              elevation: 0,
+              backgroundColor: Colors.transparent,
+              child: Container(
+                padding: EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  shape: BoxShape.rectangle,
+                  borderRadius: BorderRadius.circular(20),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black26,
+                      blurRadius: 10.0,
+                      offset: const Offset(0.0, 10.0),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      '격려 멘트 관리',
+                      style: TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    SizedBox(height: 20),
+                    Flexible(
+                      child: Consumer<SettingsProvider>(
+                        builder: (context, provider, child) {
+                          return ListView.builder(
+                            shrinkWrap: true,
+                            itemCount: provider.encouragingComments.length,
+                            itemBuilder: (context, index) {
+                              return Card(
+                                elevation: 2,
+                                margin: EdgeInsets.symmetric(vertical: 4),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: ListTile(
+                                  title: Text(
+                                    provider.encouragingComments[index],
+                                  ),
+                                  trailing: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      IconButton(
+                                        icon: Icon(
+                                          Icons.edit,
+                                          color: Colors.blue,
+                                        ),
+                                        onPressed:
+                                            () => _editEncouragingComment(
+                                              context,
+                                              index,
+                                              provider
+                                                  .encouragingComments[index],
+                                            ),
+                                      ),
+                                      IconButton(
+                                        icon: Icon(
+                                          Icons.delete,
+                                          color: Colors.red,
+                                        ),
+                                        onPressed:
+                                            () => _deleteEncouragingComment(
+                                              context,
+                                              index,
+                                            ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              );
+                            },
+                          );
+                        },
+                      ),
+                    ),
+                    SizedBox(height: 20),
+                    TextField(
+                      controller: newCommentController,
+                      decoration: InputDecoration(
+                        labelText: "새로운 격려 멘트",
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        suffixIcon: IconButton(
+                          icon: Icon(Icons.add),
+                          onPressed: () async {
+                            if (newCommentController.text.isNotEmpty) {
+                              try {
+                                await settingsProvider.addEncouragingComment(
+                                  newCommentController.text,
+                                );
+                                newCommentController.clear();
+                              } catch (e) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text('격려 멘트 추가 중 오류가 발생했습니다.'),
+                                  ),
+                                );
+                              }
+                            }
+                          },
+                        ),
+                      ),
+                    ),
+                    SizedBox(height: 20),
+                    ElevatedButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      child: Text('닫기'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.grey.shade300,
+                        foregroundColor: Colors.black87,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  void _editEncouragingComment(
+    BuildContext context,
+    int index,
+    String currentComment,
+  ) {
+    final settingsProvider = Provider.of<SettingsProvider>(
+      context,
+      listen: false,
+    );
+    TextEditingController controller = TextEditingController(
+      text: currentComment,
+    );
+
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return Dialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          elevation: 0,
+          backgroundColor: Colors.transparent,
+          child: Container(
+            padding: EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              shape: BoxShape.rectangle,
+              borderRadius: BorderRadius.circular(20),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black26,
+                  blurRadius: 10.0,
+                  offset: const Offset(0.0, 10.0),
+                ),
+              ],
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  '격려 멘트 수정',
+                  style: TextStyle(fontSize: 22, fontWeight: FontWeight.w600),
+                ),
+                SizedBox(height: 20),
+                TextField(
+                  controller: controller,
+                  decoration: InputDecoration(
+                    labelText: "격려 멘트",
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                ),
+                SizedBox(height: 20),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: [
+                    ElevatedButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      child: Text('취소'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.grey.shade300,
+                        foregroundColor: Colors.black87,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                    ),
+                    ElevatedButton(
+                      onPressed: () async {
+                        if (controller.text.isNotEmpty) {
+                          try {
+                            await settingsProvider.updateEncouragingComment(
+                              index,
+                              controller.text,
+                            );
+                            Navigator.of(context).pop();
+                          } catch (e) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text('격려 멘트 수정 중 오류가 발생했습니다.')),
+                            );
+                          }
+                        }
+                      },
+                      child: Text('확인'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.blue,
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  void _deleteEncouragingComment(BuildContext context, int index) {
+    final settingsProvider = Provider.of<SettingsProvider>(
+      context,
+      listen: false,
+    );
+    final commentToDelete = settingsProvider.encouragingComments[index];
+
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return Dialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          elevation: 0,
+          backgroundColor: Colors.transparent,
+          child: Container(
+            padding: EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              shape: BoxShape.rectangle,
+              borderRadius: BorderRadius.circular(20),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black26,
+                  blurRadius: 10.0,
+                  offset: const Offset(0.0, 10.0),
+                ),
+              ],
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Icons.warning_amber_rounded,
+                  color: Colors.orange,
+                  size: 50,
+                ),
+                SizedBox(height: 16),
+                Text(
+                  '격려 멘트 삭제',
+                  style: TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.black87,
+                  ),
+                ),
+                SizedBox(height: 16),
+                Container(
+                  padding: EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.grey[50],
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.grey[200]!),
+                  ),
+                  child: Text(
+                    commentToDelete,
+                    style: TextStyle(fontSize: 16, color: Colors.black87),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+                SizedBox(height: 24),
+                Text(
+                  '이 격려 멘트를 삭제하시겠습니까?',
+                  style: TextStyle(fontSize: 16, color: Colors.black54),
+                ),
+                SizedBox(height: 24),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: [
+                    ElevatedButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      child: Text('취소'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.grey[200],
+                        foregroundColor: Colors.black87,
+                        padding: EdgeInsets.symmetric(
+                          horizontal: 24,
+                          vertical: 12,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                    ),
+                    ElevatedButton(
+                      onPressed: () async {
+                        try {
+                          await settingsProvider.deleteEncouragingComment(
+                            index,
+                          );
+                          Navigator.of(context).pop();
+                        } catch (e) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text('격려 멘트 삭제 중 오류가 발생했습니다.')),
+                          );
+                        }
+                      },
+                      child: Text('삭제'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.red[400],
+                        foregroundColor: Colors.white,
+                        padding: EdgeInsets.symmetric(
+                          horizontal: 24,
+                          vertical: 12,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 }
@@ -2010,16 +2415,19 @@ Widget _buildSettingsCard(
                 color: color.withOpacity(0.1),
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: Icon(icon, color: color, size: 30),
+              child: Icon(icon, color: color, size: 15),
             ),
             SizedBox(width: 20),
             Expanded(
-              child: Text(
-                title,
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w500),
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                alignment: Alignment.center,
+                child: Text(
+                  title,
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w500),
+                ),
               ),
             ),
-            Icon(Icons.arrow_forward_ios, color: Colors.grey),
           ],
         ),
       ),

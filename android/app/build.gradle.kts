@@ -33,7 +33,7 @@ val flutterVersionName = localProperties.getProperty("flutter.versionName") ?: "
 
 android {
     namespace = "com.example.endoscopy_total_solution"
-    compileSdk = 34
+    compileSdk = 35
     ndkVersion = "27.0.12077973"
 
     compileOptions {
@@ -43,8 +43,8 @@ android {
 
     defaultConfig {
         applicationId = "com.example.endoscopy_total_solution"
-        minSdk = 23
-        targetSdk = 34
+        minSdk = 24
+        targetSdk = 35
         versionCode = 1
         versionName = "1.0"
     }

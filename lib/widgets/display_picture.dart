@@ -295,6 +295,7 @@ class _DisplayPictureScreenState extends State<DisplayPictureScreen> {
               .collection('patients')
               .where('examDate', isEqualTo: today)
               .where('name', isEqualTo: patientNameController.text)
+              .where('id', isEqualTo: patientIDController.text)
               .get();
 
       // 중복된 환자가 있는 경우
@@ -305,7 +306,7 @@ class _DisplayPictureScreenState extends State<DisplayPictureScreen> {
           builder: (BuildContext context) {
             return AlertDialog(
               title: Text('중복된 환자'),
-              content: Text('동일한 환자가 오늘 이미 저장되어 있습니다.'),
+              content: Text('동일한 환자번호와 이름을 가진 환자가 오늘 이미 저장되어 있습니다.'),
               actions: <Widget>[
                 TextButton(
                   child: Text('확인'),

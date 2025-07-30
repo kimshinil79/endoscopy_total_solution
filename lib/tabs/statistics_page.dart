@@ -66,33 +66,9 @@ class _StatisticsPageState extends State<StatisticsPage>
   String selectedDoctor = '의사';
   String selectedRoomForSearch = '전체';
 
-  Map<String, String> scopyFullName = {
-    '039': '7C692K039',
-    '073': 'KG391K073',
-    '098': '5C692K098',
-    '153': '5G391K153',
-    '166': '6C692K166',
-    '180': '5G391K180',
-    '219': '1C664K219',
-    '256': '7G391K256',
-    '257': '7G391k257',
-    '259': '7G391K259',
-    '333': '2G348K333',
-    '379': '1C665K379',
-    '390': '2G348K390',
-    '405': '2G348K405',
-    '407': '2G348K407',
-    '515': '1C666K515',
-    '694': '5G348K694',
-  };
-
-  Map<String, String> washingMachinesFullName = {
-    '1호기': "G0423102",
-    '2호기': 'G0423103',
-    '3호기': 'G0423104',
-    '4호기': 'G0417099',
-    '5호기': 'I0210032',
-  };
+  // 빈 Map으로 초기화
+  Map<String, String> scopyFullName = {};
+  Map<String, String> washingMachinesFullName = {};
 
   bool showDetailSearch = false;
   bool isGSFSelected = false;
@@ -1078,6 +1054,22 @@ class _StatisticsPageState extends State<StatisticsPage>
         });
         // ... finalize ...
 
+        // 세척기 매핑 정보를 다시 로드합니다.
+        DocumentSnapshot washingMachineSnapshot =
+            await FirebaseFirestore.instance
+                .collection('settings')
+                .doc('washingMachines')
+                .get();
+
+        Map<String, String> currentWashingMachinesFullName = {};
+        if (washingMachineSnapshot.exists) {
+          Map<String, dynamic> machineMap =
+              (washingMachineSnapshot.data()
+                  as Map<String, dynamic>)['washingMachineMap'] ??
+              {};
+          currentWashingMachinesFullName = Map<String, String>.from(machineMap);
+        }
+
         // 세척기 정보를 가져옵니다.
         Map<String, List<DateTime>> machineData =
             await fetchMachineDisinfectantDates();
@@ -1192,7 +1184,20 @@ class _StatisticsPageState extends State<StatisticsPage>
 
           String scopeNumber = scopyFullName[scopeName] ?? '';
           String washingMachineNumber =
-              washingMachinesFullName[scopeData['washingMachine']] ?? '';
+              currentWashingMachinesFullName[scopeData['washingMachine']] ?? '';
+
+          // 디버깅: 세척기 번호가 비어있을 때 로그 출력
+          if (washingMachineNumber.isEmpty) {
+            print('세척기 번호가 비어있음:');
+            print('scopeData[washingMachine]: ${scopeData['washingMachine']}');
+            print(
+              'currentWashingMachinesFullName keys: ${currentWashingMachinesFullName.keys.toList()}',
+            );
+            print(
+              'currentWashingMachinesFullName values: ${currentWashingMachinesFullName.values.toList()}',
+            );
+          }
+
           String washingTime = scopeData['washingTime'] ?? '';
           String washingCharger =
               scopeData['washingCharger'] ?? selectedWashingCharger;
@@ -1912,10 +1917,57 @@ class _StatisticsPageState extends State<StatisticsPage>
     summaryStartDate = now;
     summaryEndDate = now;
     isConfirmButtonEnabled = selectedDoctor != '의사';
+    _loadSettingsData(); // 설정 데이터 로드
     SharedPreferences.getInstance().then((prefs) {
       setState(() {
         email = prefs.getString('emailAddress') ?? '';
       });
+    });
+  }
+
+  // SettingsProvider에서 데이터 로드하는 메서드 추가
+  void _loadSettingsData() {
+    final settingsProvider = Provider.of<SettingsProvider>(
+      context,
+      listen: false,
+    );
+
+    // GSF, CSF, SIG 스코프 정보 로드
+    Map<String, String> gsfMap = settingsProvider.gsfScopes;
+    Map<String, String> csfMap = settingsProvider.csfScopes;
+    Map<String, String> sigMap = settingsProvider.sigScopes;
+
+    // scopyFullName 맵 초기화
+    setState(() {
+      // 모든 스코프 맵 병합
+      scopyFullName = {};
+      gsfMap.forEach((key, value) {
+        scopyFullName[key] = value;
+      });
+      csfMap.forEach((key, value) {
+        scopyFullName[key] = value;
+      });
+      sigMap.forEach((key, value) {
+        scopyFullName[key] = value;
+      });
+
+      // washingMachinesFullName 로드
+      FirebaseFirestore.instance
+          .collection('settings')
+          .doc('washingMachines')
+          .get()
+          .then((snapshot) {
+            if (snapshot.exists) {
+              Map<String, dynamic> machineMap =
+                  (snapshot.data()
+                      as Map<String, dynamic>)['washingMachineMap'] ??
+                  {};
+
+              setState(() {
+                washingMachinesFullName = Map<String, String>.from(machineMap);
+              });
+            }
+          });
     });
   }
 

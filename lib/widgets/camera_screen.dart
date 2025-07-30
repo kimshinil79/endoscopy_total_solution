@@ -5,6 +5,8 @@ import 'package:path_provider/path_provider.dart';
 //import 'dart:io';
 import 'package:path/path.dart' show join;
 import 'package:flutter/services.dart';
+import 'package:flutter_exif_rotation/flutter_exif_rotation.dart';
+import 'dart:io';
 
 class CameraScreen extends StatefulWidget {
   @override
@@ -57,16 +59,22 @@ class _CameraScreenState extends State<CameraScreen> {
       final path = join(directory.path, '${DateTime.now()}.png');
 
       XFile picture = await _controller!.takePicture();
-      await picture.saveTo(path);
 
+      // EXIF 정보를 기반으로 이미지 회전 수정
+      File rotatedImage = await FlutterExifRotation.rotateAndSaveImage(
+        path: picture.path,
+      );
+
+      // 회전된 이미지를 사용하여 화면 전환
       Navigator.push(
         context,
         MaterialPageRoute(
-          builder: (context) => DisplayPictureScreen(imagePath: path),
+          builder:
+              (context) => DisplayPictureScreen(imagePath: rotatedImage.path),
         ),
       );
     } catch (e) {
-      print(e);
+      print('이미지 촬영 오류: $e');
     } finally {
       setState(() {
         _isTakingPicture = false;
@@ -85,18 +93,7 @@ class _CameraScreenState extends State<CameraScreen> {
             return Stack(
               children: [
                 Positioned.fill(
-                  child: Transform.rotate(
-                    angle: 90 * 3.1415927 / 180, // 90도 회전
-                    child: Transform.scale(
-                      scale: 1, // scale 값을 1.0으로 조정
-                      child: Center(
-                        child: AspectRatio(
-                          aspectRatio: 1 / _controller!.value.aspectRatio,
-                          child: CameraPreview(_controller!),
-                        ),
-                      ),
-                    ),
-                  ),
+                  child: Center(child: CameraPreview(_controller!)),
                 ),
               ],
             );
