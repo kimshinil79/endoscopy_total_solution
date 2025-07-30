@@ -1,29 +1,22 @@
-import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:intl/intl.dart';
-import 'package:syncfusion_flutter_xlsio/xlsio.dart' as xls;
-import 'package:syncfusion_officechart/officechart.dart';
-import 'package:path_provider/path_provider.dart';
 import 'dart:io';
-import 'package:flutter_email_sender/flutter_email_sender.dart';
+import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:syncfusion_flutter_xlsio/xlsio.dart' as xls;
+import 'package:path_provider/path_provider.dart';
+import 'package:provider/provider.dart';
+import '../provider/settings_provider.dart';
 
-class DisinfectantChangeLogExcel {
-  static const Color oceanBlue = Color(0xFF1A5F7A);
-
-  static const Map<String, String> washingMachinesFullName = {
-    '1호기': 'SOLUSCOPE STERIL 10 AUTO',
-    '2호기': 'SOLUSCOPE STERIL 10 AUTO',
-    '3호기': 'SOLUSCOPE STERIL 10 AUTO',
-    '4호기': 'SOLUSCOPE STERIL 10 AUTO',
-    '5호기': 'SOLUSCOPE STERIL 10 AUTO',
-  };
+class DisinfectantExcelGenerator {
+  static final Color oceanBlue = Color(0xFF1A5F7A);
 
   static void show(
     BuildContext context,
-    Function(bool) setLoading,
-    Function(BuildContext, String, String) showSendEmailDialog,
+    VoidCallback setLoadingTrue,
+    VoidCallback setLoadingFalse,
+    Function(String, String) showSendEmailDialog,
   ) async {
-    setLoading(true);
+    setLoadingTrue();
 
     try {
       showDialog(
@@ -77,7 +70,7 @@ class DisinfectantChangeLogExcel {
                               setState(() {
                                 selectedMachine = newValue!;
                                 selectedDates.clear();
-                                _fetchChangeDates(selectedMachine!).then((
+                                fetchChangeDates(selectedMachine!).then((
                                   dates,
                                 ) {
                                   setState(() {
@@ -176,8 +169,7 @@ class DisinfectantChangeLogExcel {
                             onPressed: () {
                               if (selectedMachine != null &&
                                   selectedDates.isNotEmpty) {
-                                _createExcelFile(
-                                  context,
+                                createExcelFile(
                                   selectedMachine!,
                                   selectedDates.toList(),
                                   showSendEmailDialog,
@@ -210,45 +202,80 @@ class DisinfectantChangeLogExcel {
         context,
       ).showSnackBar(SnackBar(content: Text('엑셀 파일 생성 중 오류가 발생했습니다.')));
     } finally {
-      setLoading(false);
+      setLoadingFalse();
     }
   }
 
-  static Future<List<DateTime>> _fetchChangeDates(String machineName) async {
+  static Future<List<DateTime>> fetchChangeDates(String machineName) async {
     // Fetch disinfectant change dates from Firestore
-    DocumentSnapshot doc =
-        await FirebaseFirestore.instance
-            .collection('washingMachines') // Updated collection name
-            .doc(machineName)
-            .get();
+    try {
+      DocumentSnapshot doc =
+          await FirebaseFirestore.instance
+              .collection('washingMachines') // Updated collection name
+              .doc(machineName)
+              .get();
 
-    if (doc.exists) {
-      Map<String, dynamic> datesMap = doc['disinfectantChangeDate'];
-      List<DateTime> dates =
-          datesMap.keys
-              .map((dateString) {
-                try {
-                  return DateTime.parse(dateString);
-                } catch (e) {
-                  print('Error parsing date: $dateString');
-                  return null;
-                }
-              })
-              .where((date) => date != null)
-              .cast<DateTime>()
-              .toList();
-      return dates;
+      if (doc.exists && doc.data() != null) {
+        final data = doc.data() as Map<String, dynamic>;
+        final datesData = data['disinfectantChangeDate'];
+
+        if (datesData != null && datesData is Map) {
+          Map<String, dynamic> datesMap = Map<String, dynamic>.from(datesData);
+          List<DateTime> dates =
+              datesMap.keys
+                  .map((dateString) {
+                    try {
+                      return DateTime.parse(dateString);
+                    } catch (e) {
+                      print('Error parsing date: $dateString');
+                      return null;
+                    }
+                  })
+                  .where((date) => date != null)
+                  .cast<DateTime>()
+                  .toList();
+          return dates;
+        }
+      }
+    } catch (e) {
+      print('Error fetching change dates: $e');
     }
     return [];
   }
 
-  static void _createExcelFile(
-    BuildContext context,
+  static void createExcelFile(
     String machineName,
     List<DateTime> changeDates,
-    Function(BuildContext, String, String) showSendEmailDialog,
+    Function(String, String) showSendEmailDialog,
   ) async {
     final xls.Workbook workbook = xls.Workbook();
+
+    // Get washingMachinesFullName from Firebase
+    DocumentSnapshot settingsDoc =
+        await FirebaseFirestore.instance
+            .collection('settings')
+            .doc('washingMachines')
+            .get();
+
+    Map<String, String> washingMachinesFullName = {};
+    try {
+      if (settingsDoc.exists && settingsDoc.data() != null) {
+        final data = settingsDoc.data();
+        if (data is Map<String, dynamic>) {
+          washingMachinesFullName = Map<String, String>.from(data);
+        }
+      }
+    } catch (e) {
+      print('Error loading washing machine names: $e');
+      // Use default names if Firebase data is not available
+      washingMachinesFullName = {
+        '1호기': 'Olympus OER-4 201510 F5CAS00063',
+        '2호기': 'Olympus OER-4 201510 F5CAS00012',
+        '3호기': 'Olympus OER-4 201510 F5CAS00065',
+        '4호기': 'Olympus OER-4 201510 F5CAS00011',
+        '5호기': 'Olympus OER-4 201510 F5CAS00025',
+      };
+    }
 
     for (int i = 0; i < changeDates.length; i++) {
       DateTime changeDate = changeDates[i];
@@ -266,8 +293,13 @@ class DisinfectantChangeLogExcel {
       sheet.name = sanitizedName;
 
       // 시트 설정 및 데이터 채우기
-      _setupBasicStructure(sheet, machineName, changeDate);
-      await _fillData(sheet, machineName, changeDate);
+      setupBasicStructure(
+        sheet,
+        machineName,
+        changeDate,
+        washingMachinesFullName,
+      );
+      await fillData(sheet, machineName, changeDate);
     }
 
     // 나머지 코드 (파일 저장 등)
@@ -282,13 +314,14 @@ class DisinfectantChangeLogExcel {
     await file.writeAsBytes(bytes, flush: true);
 
     // 이메일 전송 다이얼로그 표시
-    showSendEmailDialog(context, filePath, '내시경 소독액 교환 점검표');
+    showSendEmailDialog(filePath, '내시경 소독액 교환 점검표');
   }
 
-  static void _setupBasicStructure(
+  static void setupBasicStructure(
     xls.Worksheet sheet,
     String machineName,
     DateTime changeDate,
+    Map<String, String> washingMachinesFullName,
   ) {
     sheet.pageSetup.orientation = xls.ExcelPageOrientation.landscape;
     // 1행: 제목
@@ -334,161 +367,190 @@ class DisinfectantChangeLogExcel {
 
     // 6행: 추가 정보
     sheet.getRangeByName('A6:D6').merge();
-    sheet.getRangeByName('A6').setText('사용량 확인(소독액 보충 또는 교체 시)');
-    sheet.getRangeByName('E6:J6').merge();
+    sheet.getRangeByName('A6').setText('생검용 겸자 : 일회용 사용(O)');
+    sheet.getRangeByName('E6:G6').merge();
+    sheet.getRangeByName('E6').setText('부속기구 소독: EO 가스 소독(O)');
+
+    sheet.getRangeByName('H5:J5').merge();
     sheet
-        .getRangeByName('E6')
-        .setText('10L/3.1L = 3.2배 (1제), 10L/0.9L = 11.1배 (2제)');
+        .getRangeByName('H5')
+        .setText('28일 안에 80회 초과시, 테스트스트립 결과 500ppm 이하시 교체');
+    sheet.getRangeByName('H5').cellStyle.fontSize = 9;
 
-    // 테이블 헤더 설정
-    final List<String> headers = [
-      '일자',
-      '시간',
-      '온도(℃)',
-      'MRC\n확인',
-      '소독액\n농도\n(ppm)',
-      '세척\n사이클\n수',
-      '누적\n사이클\n수',
-      '점검자',
-      '특이\n사항',
-      '확인자\n서명',
-    ];
+    // 6행: 소독액 유효농도 측정
+    sheet.getRangeByName('H6:J6').merge();
+    sheet.getRangeByName('H6').setText('소독액 유효농도 측정: 매일 (P:적절, F:부적절)');
 
-    for (int i = 0; i < headers.length; i++) {
-      final cell = sheet.getRangeByIndex(7, i + 1);
-      cell.setText(headers[i]);
-      cell.cellStyle.hAlign = xls.HAlignType.center;
-      cell.cellStyle.vAlign = xls.VAlignType.center;
-      cell.cellStyle.borders.all.lineStyle = xls.LineStyle.thin;
-      cell.cellStyle.backColor = '#E8E8E8';
-    }
+    // 7-8행: 표 헤더
+    sheet.getRangeByName('A7:A8').merge();
+    sheet.getRangeByName('A7').setText('날짜');
+    sheet.getRangeByName('B7:B8').merge();
+    sheet.getRangeByName('B7').setText('내시경건수');
+    sheet.getRangeByName('C7:H7').merge();
+    sheet.getRangeByName('C7').setText('소독 단계별 실시건수');
+    sheet.getRangeByName('C8').setText('(전)세척');
+    sheet.getRangeByName('D8').setText('소독');
+    sheet.getRangeByName('E8').setText('헹굼.검조');
+    sheet.getRangeByName('F8').setText('보관');
+    sheet.getRangeByName('G8').setText('부속기구 소독');
+    sheet.getRangeByName('H8').setText('송수병,연결기구소독');
+    sheet.getRangeByName('I7:I8').merge();
+    sheet.getRangeByName('I7').setText('최소유효농도측정(P/F)');
+    sheet.getRangeByName('J7:J8').merge();
+    sheet.getRangeByName('J7').setText('소독실무자');
+
+    // 모든 셀에 테두리 추가
+    sheet.getRangeByName('A1:J8').cellStyle.borders.all.lineStyle =
+        xls.LineStyle.thin;
+
+    // 텍스트 정렬
+    sheet.getRangeByName('A1:J8').cellStyle.hAlign = xls.HAlignType.center;
+    sheet.getRangeByName('A1:J8').cellStyle.vAlign = xls.VAlignType.center;
   }
 
-  static Future<void> _fillData(
+  static Future<void> fillData(
     xls.Worksheet sheet,
     String machineName,
     DateTime changeDate,
   ) async {
-    DateTime startDate = changeDate;
-    DateTime endDate = changeDate.add(Duration(days: 28));
+    QuerySnapshot querySnapshot =
+        await FirebaseFirestore.instance
+            .collection('patients')
+            .where(
+              'examDate',
+              isGreaterThanOrEqualTo: DateFormat(
+                'yyyy-MM-dd',
+              ).format(changeDate),
+            )
+            .orderBy('examDate')
+            .get();
 
-    try {
-      QuerySnapshot querySnapshot =
-          await FirebaseFirestore.instance
-              .collection('patients')
-              .where(
-                'examDate',
-                isGreaterThanOrEqualTo: DateFormat(
-                  'yyyy-MM-dd',
-                ).format(startDate),
-              )
-              .where(
-                'examDate',
-                isLessThan: DateFormat('yyyy-MM-dd').format(endDate),
-              )
-              .get();
+    Map<String, int> dailyCounts = {};
+    Map<String, String> dailyWashingChargers = {};
+    int totalCount = 0;
+    DateTime? lastWashDate;
 
-      Map<String, int> dailyCounts = {};
-      Map<String, Set<String>> dailyInspectors = {};
+    for (var doc in querySnapshot.docs) {
+      if (totalCount >= 80) break;
 
-      for (var doc in querySnapshot.docs) {
-        String examDate = doc['examDate'];
+      void checkEndoscopy(String type) {
+        try {
+          final docData = doc.data() as Map<String, dynamic>?;
+          if (docData != null && docData[type] != null) {
+            final examData = docData[type];
+            if (examData is Map && examData['scopes'] != null) {
+              final scopes = examData['scopes'] as Map<String, dynamic>;
+              scopes.forEach((scopeName, scopeData) {
+                if (scopeData is Map &&
+                    scopeData['washingMachine'] == machineName) {
+                  try {
+                    String examDate = docData['examDate']?.toString() ?? '';
+                    String washingTime =
+                        scopeData['washingTime']?.toString() ?? '';
 
-        // GSF, CSF, sig 스코프들을 모두 확인
-        ['GSF', 'CSF', 'sig'].forEach((examType) {
-          if (doc[examType] != null && doc[examType]['scopes'] != null) {
-            Map<String, dynamic> scopes = doc[examType]['scopes'];
-            scopes.forEach((scopeName, scopeData) {
-              if (scopeData['washingMachine'] == machineName) {
-                dailyCounts[examDate] = (dailyCounts[examDate] ?? 0) + 1;
-                if (scopeData['washingCharger'] != null) {
-                  dailyInspectors[examDate] ??= <String>{};
-                  dailyInspectors[examDate]!.add(scopeData['washingCharger']);
+                    if (examDate.isNotEmpty && washingTime.isNotEmpty) {
+                      DateTime washDateTime = DateTime.parse(
+                        '$examDate $washingTime',
+                      );
+
+                      if (washDateTime.isAfter(changeDate)) {
+                        String formattedDate = DateFormat(
+                          'yy-MM-dd',
+                        ).format(washDateTime);
+                        dailyCounts[formattedDate] =
+                            (dailyCounts[formattedDate] ?? 0) + 1;
+
+                        String? washingCharger =
+                            scopeData['washingCharger']?.toString();
+                        if (washingCharger != null &&
+                            washingCharger.isNotEmpty) {
+                          dailyWashingChargers[formattedDate] = washingCharger;
+                        }
+
+                        totalCount++;
+                        lastWashDate = washDateTime;
+                      }
+                    }
+                  } catch (e) {
+                    print('Error parsing datetime for $type: $e');
+                  }
                 }
-              }
-            });
+              });
+            }
           }
-        });
+        } catch (e) {
+          print('Error processing $type data: $e');
+        }
       }
 
-      int row = 8;
-      int cumulativeCount = 0;
-      DateTime currentDate = startDate;
-
-      while (currentDate.isBefore(endDate) ||
-          currentDate.isAtSameMomentAs(endDate)) {
-        String dateKey = DateFormat('yyyy-MM-dd').format(currentDate);
-        int dayCount = dailyCounts[dateKey] ?? 0;
-        cumulativeCount += dayCount;
-
-        // 날짜
-        sheet
-            .getRangeByIndex(row, 1)
-            .setText(DateFormat('MM/dd').format(currentDate));
-        sheet.getRangeByIndex(row, 1).cellStyle.borders.all.lineStyle =
-            xls.LineStyle.thin;
-
-        // 시간 (빈 칸)
-        sheet.getRangeByIndex(row, 2).cellStyle.borders.all.lineStyle =
-            xls.LineStyle.thin;
-
-        // 온도 (빈 칸)
-        sheet.getRangeByIndex(row, 3).cellStyle.borders.all.lineStyle =
-            xls.LineStyle.thin;
-
-        // MRC 확인 (빈 칸)
-        sheet.getRangeByIndex(row, 4).cellStyle.borders.all.lineStyle =
-            xls.LineStyle.thin;
-
-        // 소독액 농도 (빈 칸)
-        sheet.getRangeByIndex(row, 5).cellStyle.borders.all.lineStyle =
-            xls.LineStyle.thin;
-
-        // 세척 사이클 수
-        if (dayCount > 0) {
-          sheet.getRangeByIndex(row, 6).setNumber(dayCount.toDouble());
-        }
-        sheet.getRangeByIndex(row, 6).cellStyle.borders.all.lineStyle =
-            xls.LineStyle.thin;
-
-        // 누적 사이클 수
-        sheet.getRangeByIndex(row, 7).setNumber(cumulativeCount.toDouble());
-        sheet.getRangeByIndex(row, 7).cellStyle.borders.all.lineStyle =
-            xls.LineStyle.thin;
-
-        // 점검자
-        if (dailyInspectors[dateKey] != null) {
-          String inspectors = dailyInspectors[dateKey]!.join(', ');
-          sheet.getRangeByIndex(row, 8).setText(inspectors);
-        }
-        sheet.getRangeByIndex(row, 8).cellStyle.borders.all.lineStyle =
-            xls.LineStyle.thin;
-
-        // 특이사항 (빈 칸)
-        sheet.getRangeByIndex(row, 9).cellStyle.borders.all.lineStyle =
-            xls.LineStyle.thin;
-
-        // 확인자 서명 (빈 칸)
-        sheet.getRangeByIndex(row, 10).cellStyle.borders.all.lineStyle =
-            xls.LineStyle.thin;
-
-        currentDate = currentDate.add(Duration(days: 1));
-        row++;
-      }
-
-      // 컬럼 너비 조정
-      sheet.setColumnWidthInPixels(1, 60); // 일자
-      sheet.setColumnWidthInPixels(2, 60); // 시간
-      sheet.setColumnWidthInPixels(3, 70); // 온도
-      sheet.setColumnWidthInPixels(4, 60); // MRC 확인
-      sheet.setColumnWidthInPixels(5, 80); // 소독액 농도
-      sheet.setColumnWidthInPixels(6, 70); // 세척 사이클 수
-      sheet.setColumnWidthInPixels(7, 70); // 누적 사이클 수
-      sheet.setColumnWidthInPixels(8, 80); // 점검자
-      sheet.setColumnWidthInPixels(9, 100); // 특이사항
-      sheet.setColumnWidthInPixels(10, 80); // 확인자 서명
-    } catch (e) {
-      print('Error filling data: $e');
+      checkEndoscopy('GSF');
+      checkEndoscopy('CSF');
+      checkEndoscopy('sig');
     }
+
+    int rowIndex = 9;
+    List<String> sortedDates = dailyCounts.keys.toList();
+    sortedDates.sort((a, b) {
+      DateTime dateA = DateFormat('yy-MM-dd').parse(a);
+      DateTime dateB = DateFormat('yy-MM-dd').parse(b);
+      return dateA.compareTo(dateB);
+    });
+
+    String lastWashingCharger = '';
+    for (var date in sortedDates) {
+      int count = dailyCounts[date]!;
+      sheet.getRangeByIndex(rowIndex, 1).setText(date);
+      sheet.getRangeByIndex(rowIndex, 2).setNumber(count.toDouble());
+
+      // Fill in the same number for columns C to G
+      for (int col = 3; col <= 7; col++) {
+        sheet.getRangeByIndex(rowIndex, col).setNumber(count.toDouble());
+      }
+
+      // Set 1 for column H (송수병,연결기구소독)
+      sheet.getRangeByIndex(rowIndex, 8).setNumber(1);
+
+      // Set 'P' for column I (최소유효농도측정)
+      sheet.getRangeByIndex(rowIndex, 9).setText('P');
+
+      // Set washingCharger for column J
+      lastWashingCharger = dailyWashingChargers[date] ?? lastWashingCharger;
+      sheet.getRangeByIndex(rowIndex, 10).setText(lastWashingCharger);
+
+      rowIndex++;
+    }
+
+    // 배출일 기록
+    if (lastWashDate != null) {
+      sheet
+          .getRangeByName('I4')
+          .setText(DateFormat('yy년 MM월 dd일').format(lastWashDate!));
+    }
+
+    // 전체 셀에 좌우 가운데 정렬 적용
+    sheet.getRangeByName('A1:J$rowIndex').cellStyle.hAlign =
+        xls.HAlignType.center;
+
+    // 전체 셀에 테두리 적용
+    sheet.getRangeByName('A1:J$rowIndex').cellStyle.borders.all.lineStyle =
+        xls.LineStyle.thin;
+
+    // 열 너비 설정
+    sheet.getRangeByName('A1:J1').columnWidth = 10; // 모든 열의 기본 너비를 10으로 설정
+    sheet.getRangeByName('C1:C1').columnWidth = 8;
+    sheet.getRangeByName('D1:D1').columnWidth = 6;
+    sheet.getRangeByName('E1:E1').columnWidth = 10;
+    sheet.getRangeByName('F1:F1').columnWidth = 4;
+    sheet.getRangeByName('G1:G1').columnWidth = 12;
+    sheet.getRangeByName('H1:H1').columnWidth = 16;
+    sheet.getRangeByName('I1:I1').columnWidth = 16;
+
+    // C2:E3 셀 병합 및 폰트 크기 설정
+    sheet.getRangeByName('C2:E3').merge();
+    sheet.getRangeByName('C2:E3').cellStyle.fontSize = 8;
+
+    // I7:I8 셀 병합 및 폰트 크기 설정
+    sheet.getRangeByName('I7:I8').merge();
+    sheet.getRangeByName('I7:I8').cellStyle.fontSize = 8;
   }
 }
