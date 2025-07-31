@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import '../data_class/patient_exam.dart';
-import '../provider/patient_provider.dart';
+import '../../data_class/patient_exam.dart';
+import '../../provider/patient_provider.dart';
 
 class ExamListDialog {
   static void show(

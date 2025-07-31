@@ -281,11 +281,11 @@ class SettingsProvider extends ChangeNotifier {
             .doc('doctors')
             .get();
 
-    Map<String, dynamic> loadedDoctorMap = doctorsDoc['doctorMap'] ?? {};
-    _doctorMap = Map<String, String>.from(loadedDoctorMap);
-
-    List<String> loadedDoctors = loadedDoctorMap.keys.toList();
+    List<String> loadedDoctors = List<String>.from(doctorsDoc['docList'] ?? []);
     _doctors = ['의사', ...loadedDoctors];
+
+    // doctorMap을 빈 맵으로 설정 (기존 호환성을 위해)
+    _doctorMap = {};
   }
 
   Future<void> _loadRooms() async {

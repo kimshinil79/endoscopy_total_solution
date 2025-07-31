@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import '../data_class/patient_exam.dart';
-import '../widgets/patient_card_CLOResult.dart';
-import '../provider/patient_provider.dart';
+import '../../data_class/patient_exam.dart';
+import 'patient_card_CLOResult.dart';
+import '../../provider/patient_provider.dart';
 
 class CLOPatientListDialog {
   static void show(

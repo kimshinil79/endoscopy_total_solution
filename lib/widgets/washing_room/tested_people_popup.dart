@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import '../data_class/patient_exam.dart';
+import '../../data_class/patient_exam.dart';
 
 class TestedPeoplePopup {
   static Future<void> show(

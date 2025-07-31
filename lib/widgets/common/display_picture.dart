@@ -2,11 +2,11 @@ import 'package:flutter/material.dart';
 import 'dart:io';
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import '../data_class/patient_exam.dart';
+import '../../data_class/patient_exam.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
-import '../provider/patient_provider.dart';
-import '../main.dart';
+import '../../provider/patient_provider.dart';
+import '../../main.dart';
 import 'package:uuid/uuid.dart';
 
 class DisplayPictureScreen extends StatefulWidget {

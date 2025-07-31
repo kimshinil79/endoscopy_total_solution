@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../data_class/patient_exam.dart';
+import '../../data_class/patient_exam.dart';
 
 class GSFFormWidget extends StatefulWidget {
   final bool etcChecked;

@@ -8,13 +8,13 @@ import 'package:provider/provider.dart';
 import '../provider/settings_provider.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:uuid/uuid.dart';
-import '../widgets/tested_people_popup.dart';
-import '../widgets/washing_room_top_row.dart';
-import '../widgets/washing_machine_buttons.dart';
-import '../widgets/disinfectant_change_popup.dart';
-import '../widgets/scope_selection_popup.dart';
-import '../widgets/summary_popup.dart';
-import '../widgets/save_button_row.dart';
+import '../widgets/washing_room/tested_people_popup.dart';
+import '../widgets/washing_room/washing_room_top_row.dart';
+import '../widgets/washing_room/washing_machine_buttons.dart';
+import '../widgets/washing_room/disinfectant_change_popup.dart';
+import '../widgets/washing_room/scope_selection_popup.dart';
+import '../widgets/washing_room/summary_popup.dart';
+import '../widgets/washing_room/save_button_row.dart';
 
 class WashingRoom extends StatefulWidget {
   @override

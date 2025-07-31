@@ -5,7 +5,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:syncfusion_flutter_xlsio/xlsio.dart' as xls;
 import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
-import '../provider/settings_provider.dart';
+import '../../provider/settings_provider.dart';
 
 class DisinfectantExcelGenerator {
   static final Color oceanBlue = Color(0xFF1A5F7A);
