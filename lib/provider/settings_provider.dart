@@ -45,13 +45,13 @@ class SettingsProvider extends ChangeNotifier {
   }
 
   List<String> get doctors => _doctors;
+  Map<String, String> get doctorMap => _doctorMap;
   List<String> get rooms => _rooms;
   Map<String, String> get gsfScopes => _gsfScopes;
   Map<String, String> get csfScopes => _csfScopes;
   Map<String, String> get sigScopes => _sigScopes;
   List<String> get washingRoomPeople => _washingRoomPeople;
   List<String> get washerNames => _washerNames;
-  Map<String, String> get doctorMap => _doctorMap;
 
   Future<void> loadSettings() async {
     await _loadDoctors();
@@ -275,17 +275,38 @@ class SettingsProvider extends ChangeNotifier {
   }
 
   Future<void> _loadDoctors() async {
-    final doctorsDoc =
-        await FirebaseFirestore.instance
-            .collection('settings')
-            .doc('doctors')
-            .get();
+    try {
+      final doctorsDoc =
+          await FirebaseFirestore.instance
+              .collection('settings')
+              .doc('doctors')
+              .get();
 
-    List<String> loadedDoctors = List<String>.from(doctorsDoc['docList'] ?? []);
-    _doctors = ['의사', ...loadedDoctors];
+      if (doctorsDoc.exists) {
+        final data = doctorsDoc.data() as Map<String, dynamic>;
 
-    // doctorMap을 빈 맵으로 설정 (기존 호환성을 위해)
-    _doctorMap = {};
+        // doctorMap이 있으면 그것을 사용, 없으면 docList 사용
+        if (data.containsKey('doctorMap')) {
+          _doctorMap = Map<String, String>.from(data['doctorMap'] ?? {});
+          List<String> doctorNames = _doctorMap.keys.toList();
+          _doctors = ['의사', ...doctorNames];
+        } else if (data.containsKey('docList')) {
+          List<String> loadedDoctors = List<String>.from(data['docList'] ?? []);
+          _doctors = ['의사', ...loadedDoctors];
+          _doctorMap = {};
+        } else {
+          _doctors = ['의사'];
+          _doctorMap = {};
+        }
+      } else {
+        _doctors = ['의사'];
+        _doctorMap = {};
+      }
+    } catch (e) {
+      print('Error loading doctors: $e');
+      _doctors = ['의사'];
+      _doctorMap = {};
+    }
   }
 
   Future<void> _loadRooms() async {

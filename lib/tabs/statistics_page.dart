@@ -4,10 +4,8 @@ import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../data_class/patient_exam.dart';
 import 'package:syncfusion_flutter_xlsio/xlsio.dart' as xls;
-import 'package:syncfusion_officechart/officechart.dart';
 import 'package:path_provider/path_provider.dart';
 import 'dart:io';
-import '../provider/patient_provider.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_email_sender/flutter_email_sender.dart';
 import '../provider/settings_provider.dart';
@@ -18,6 +16,8 @@ import '../widgets/statistics/washing_machine_scopes_excel_generator.dart';
 import '../widgets/statistics/room_summary_dialog.dart';
 import '../widgets/statistics/summary_dialog.dart';
 import '../widgets/statistics/statistics_doctor_selection_dialog.dart';
+import '../widgets/statistics/results_dialog.dart';
+import '../widgets/statistics/results_dialog_with_current_doctors.dart';
 
 // 색상 팔레트 정의
 final Color oceanBlue = Color(0xFF1A5F7A);
@@ -591,6 +591,7 @@ class _StatisticsPageState extends State<StatisticsPage>
     summaryEndDate = now;
     isConfirmButtonEnabled = selectedDoctor != '의사';
     _loadSettingsData(); // 설정 데이터 로드
+    _loadDoctorsFromProvider(); // Provider에서 의사 목록 로드
     SharedPreferences.getInstance().then((prefs) {
       setState(() {
         email = prefs.getString('emailAddress') ?? '';
@@ -641,6 +642,26 @@ class _StatisticsPageState extends State<StatisticsPage>
               });
             }
           });
+    });
+  }
+
+  // Provider에서 의사 목록을 로드하는 메서드 추가
+  void _loadDoctorsFromProvider() {
+    final settingsProvider = Provider.of<SettingsProvider>(
+      context,
+      listen: false,
+    );
+
+    setState(() {
+      doctors = settingsProvider.doctors;
+
+      // selectedDoctor가 새로운 목록에 없으면 첫 번째 의사로 설정
+      if (!doctors.contains(selectedDoctor)) {
+        selectedDoctor =
+            doctors.isNotEmpty && doctors.length > 1
+                ? doctors[1]
+                : '의사'; // '의사' 다음의 첫 번째 실제 의사
+      }
     });
   }
 
@@ -823,403 +844,37 @@ class _StatisticsPageState extends State<StatisticsPage>
   }
 
   void _showResultsDialog(BuildContext context, List<Patient> patients) {
-    List<Patient> currentPatients = patients;
-    FirebaseFirestore.instance.collection('settings').doc('doctors').get().then((
-      docSnapshot,
-    ) {
-      if (docSnapshot.exists) {
-        Map<String, dynamic> doctorMap = docSnapshot.data()?['doctorMap'] ?? {};
-        List<String> doctorNames = doctorMap.keys.toList();
-        Set<String> combinedDoctors = Set<String>.from(doctors);
-        combinedDoctors.addAll(doctorNames);
-        combinedDoctors.remove('의사');
-        List<String> updatedDoctors = combinedDoctors.toList()..sort();
-
-        String currentDoctor = selectedDoctor;
-        if (!updatedDoctors.contains(currentDoctor)) {
-          currentDoctor = updatedDoctors.isNotEmpty ? updatedDoctors[0] : '의사';
-        }
-
-        // 변수들을 StatefulBuilder 외부에서 선언
-        Map<String, dynamic> stats = {};
-
-        // 통계 계산 함수를 Future로 변경
-        Future<Map<String, dynamic>> calculateStats(String doctor) async {
-          currentPatients = await queryPatientsByDateAndDoctor(
-            startDate!,
-            endDate!,
-            doctor,
-          );
-          List<Patient> filteredPatients =
-              currentPatients.where((p) => p.doctor == doctor).toList();
-
-          int gsfGumjin =
-              filteredPatients
-                  .where((p) => p.GSF != null && p.GSF!.gumjinOrNot == '검진')
-                  .length;
-          int gsfNonGumjin =
-              filteredPatients
-                  .where((p) => p.GSF != null && p.GSF!.gumjinOrNot == '외래')
-                  .length;
-
-          int csfGumjin =
-              filteredPatients
-                  .where((p) => p.CSF != null && p.CSF!.gumjinOrNot == '검진')
-                  .length;
-          int csfGumjinNoPolyp =
-              filteredPatients
-                  .where(
-                    (p) =>
-                        p.CSF != null &&
-                        p.CSF!.gumjinOrNot == '검진' &&
-                        p.CSF!.examDetail.polypectomy == '없음',
-                  )
-                  .length;
-          int csfGumjinWithPolyp = csfGumjin - csfGumjinNoPolyp;
-
-          int csfNonGumjin =
-              filteredPatients
-                  .where((p) => p.CSF != null && p.CSF!.gumjinOrNot == '외래')
-                  .length;
-          int csfNonGumjinNoPolyp =
-              filteredPatients
-                  .where(
-                    (p) =>
-                        p.CSF != null &&
-                        p.CSF!.gumjinOrNot == '외래' &&
-                        p.CSF!.examDetail.polypectomy == '없음',
-                  )
-                  .length;
-          int csfNonGumjinWithPolyp = csfNonGumjin - csfNonGumjinNoPolyp;
-
-          int totalLowerEndoscopies = csfNonGumjin + csfGumjin;
-          int polypectomyCount =
-              filteredPatients
-                  .where(
-                    (p) =>
-                        p.CSF != null && p.CSF!.examDetail.polypectomy != '없음',
-                  )
-                  .length;
-          double polypDetectionRate =
-              totalLowerEndoscopies > 0
-                  ? (polypectomyCount / totalLowerEndoscopies) * 100
-                  : 0;
-          int totalEndoscopies =
-              gsfGumjin + gsfNonGumjin + totalLowerEndoscopies;
-
-          return {
-            'gsfGumjin': gsfGumjin,
-            'gsfNonGumjin': gsfNonGumjin,
-            'csfGumjin': csfGumjin,
-            'csfGumjinNoPolyp': csfGumjinNoPolyp,
-            'csfGumjinWithPolyp': csfGumjinWithPolyp,
-            'csfNonGumjin': csfNonGumjin,
-            'csfNonGumjinNoPolyp': csfNonGumjinNoPolyp,
-            'csfNonGumjinWithPolyp': csfNonGumjinWithPolyp,
-            'totalLowerEndoscopies': totalLowerEndoscopies,
-            'polypectomyCount': polypectomyCount,
-            'polypDetectionRate': polypDetectionRate,
-            'totalEndoscopies': totalEndoscopies,
-          };
-        }
-
-        // 초기 통계 계산
-        calculateStats(currentDoctor).then((initialStats) {
-          stats = initialStats;
-
-          showDialog(
-            context: context,
-            builder: (context) {
-              return StatefulBuilder(
-                builder: (context, setState) {
-                  String dateRangeText =
-                      '${DateFormat('yy/MM/dd').format(startDate!)} ~ ${DateFormat('yy/MM/dd').format(endDate!)}';
-
-                  return Dialog(
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Container(
-                      width: MediaQuery.of(context).size.width * 0.9,
-                      padding: const EdgeInsets.all(24.0),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            '의사별 통계',
-                            style: TextStyle(
-                              fontSize: 24,
-                              fontWeight: FontWeight.bold,
-                              color: oceanBlue,
-                            ),
-                          ),
-                          SizedBox(height: 8),
-                          Container(
-                            padding: EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 6,
-                            ),
-                            decoration: BoxDecoration(
-                              color: seafoamGreen.withAlpha(
-                                (0.1 * 255).round(),
-                              ),
-                              borderRadius: BorderRadius.circular(8),
-                              border: Border.all(
-                                color: oceanBlue.withAlpha((0.3 * 255).round()),
-                                width: 1,
-                              ),
-                            ),
-                            child: DropdownButton<String>(
-                              value: currentDoctor,
-                              isExpanded: true,
-                              underline: SizedBox(),
-                              icon: Icon(
-                                Icons.arrow_drop_down,
-                                color: oceanBlue,
-                              ),
-                              items:
-                                  updatedDoctors.map((String doctor) {
-                                    return DropdownMenuItem<String>(
-                                      value: doctor,
-                                      child: Text(doctor),
-                                    );
-                                  }).toList(),
-                              onChanged: (String? newValue) async {
-                                if (newValue != null) {
-                                  // 새로운 의사에 대한 통계 계산
-                                  Map<String, dynamic> newStats =
-                                      await calculateStats(newValue);
-                                  setState(() {
-                                    currentDoctor = newValue;
-                                    stats = newStats;
-                                  });
-                                }
-                              },
-                            ),
-                          ),
-                          SizedBox(height: 12),
-                          Align(
-                            alignment: Alignment.centerRight,
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.end,
-                              children: [
-                                Text(
-                                  dateRangeText,
-                                  style: TextStyle(
-                                    fontSize: 14,
-                                    color: Colors.grey[600],
-                                  ),
-                                ),
-                                IconButton(
-                                  icon: Icon(Icons.calendar_today, size: 18),
-                                  onPressed: () async {
-                                    final DateTimeRange? picked =
-                                        await showDateRangePicker(
-                                          context: context,
-                                          firstDate: DateTime(2000),
-                                          lastDate: DateTime(2101),
-                                          initialDateRange: DateTimeRange(
-                                            start: startDate!,
-                                            end: endDate!,
-                                          ),
-                                        );
-                                    if (picked != null &&
-                                        picked !=
-                                            DateTimeRange(
-                                              start: startDate!,
-                                              end: endDate!,
-                                            )) {
-                                      setState(() {
-                                        startDate = picked.start;
-                                        endDate = picked.end;
-                                        // 새로운 날짜 범위에 대한 통계 계산
-                                        calculateStats(currentDoctor).then((
-                                          newStats,
-                                        ) {
-                                          setState(() {
-                                            stats = newStats;
-                                          });
-                                        });
-                                      });
-                                    }
-                                  },
-                                ),
-                              ],
-                            ),
-                          ),
-                          SizedBox(height: 12),
-                          _buildStatisticItem(
-                            '위내시경',
-                            '검진: ${stats['gsfGumjin']}',
-                            '외래: ${stats['gsfNonGumjin']}',
-                          ),
-                          _buildStatisticItem(
-                            '대장내시경',
-                            '검진: ${stats['csfGumjin']} (${stats['csfGumjinNoPolyp']}/${stats['csfGumjinWithPolyp']})',
-                            '외래: ${stats['csfNonGumjin']} (${stats['csfNonGumjinNoPolyp']}/${stats['csfNonGumjinWithPolyp']})',
-                          ),
-                          _buildStatisticItem(
-                            '용종 발견율',
-                            '${stats['polypDetectionRate'].toStringAsFixed(2)}%',
-                            '',
-                            color: Colors.blue,
-                          ),
-                          _buildStatisticItem(
-                            '총 내시경 개수',
-                            stats['totalEndoscopies'].toString(),
-                            '',
-                            color: Colors.red,
-                          ),
-                          SizedBox(height: 24),
-                          Align(
-                            alignment: Alignment.center,
-                            child: ElevatedButton(
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: oceanBlue,
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(30),
-                                ),
-                                padding: EdgeInsets.symmetric(
-                                  horizontal: 32,
-                                  vertical: 16,
-                                ),
-                              ),
-                              onPressed: () {
-                                // Update parent state before closing dialog
-                                this.setState(() {
-                                  // startDate and endDate are already updated in the dialog
-                                  // so we're just triggering a rebuild of the parent widget
-                                });
-                                Navigator.of(context).pop();
-                              },
-                              child: Text(
-                                '닫기',
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  color: Colors.white,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  );
-                },
-              );
-            },
-          );
+    showResultsDialog(
+      context: context,
+      patients: patients,
+      startDate: startDate!,
+      endDate: endDate!,
+      selectedDoctor: selectedDoctor,
+      doctors: doctors,
+      onClose: () {
+        setState(() {
+          // Trigger rebuild of parent widget
         });
-      } else {
-        _showResultsDialogWithCurrentDoctors(context, patients);
-      }
-    });
+      },
+    );
   }
 
   void _showResultsDialogWithCurrentDoctors(
     BuildContext context,
     List<Patient> patients,
   ) {
-    String currentDoctor = selectedDoctor;
-
-    // Ensure selected doctor is in the list
-    if (!doctors.contains(currentDoctor)) {
-      currentDoctor = doctors.isNotEmpty ? doctors[0] : '의사';
-    }
-
-    // Show dialog with existing doctors list
-    // (Insert similar dialog code as above but using doctors instead of updatedDoctors)
-    // ...
-  }
-
-  Widget _buildStatisticItem(
-    String label,
-    String value1,
-    String value2, {
-    Color color = Colors.black,
-  }) {
-    bool isSingleLine = ['위내시경', '용종 발견율', '총 내시경 개수'].contains(label);
-
-    return Container(
-      margin: EdgeInsets.only(bottom: 16),
-      padding: EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.grey[100],
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          if (isSingleLine)
-            Row(
-              children: [
-                Expanded(
-                  flex: 3,
-                  child: Text(
-                    label,
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: oceanBlue,
-                    ),
-                  ),
-                ),
-                Expanded(
-                  flex: 3,
-                  child: Text(
-                    value2.isEmpty ? value1 : '$value1 / $value2',
-                    style: TextStyle(fontSize: 14, color: color),
-                  ),
-                ),
-              ],
-            )
-          else
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  label,
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: oceanBlue,
-                  ),
-                ),
-                SizedBox(height: 8),
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        value1,
-                        style: TextStyle(fontSize: 14, color: color),
-                      ),
-                    ),
-                    if (value2.isNotEmpty)
-                      Expanded(
-                        child: Text(
-                          value2,
-                          style: TextStyle(fontSize: 14, color: color),
-                        ),
-                      ),
-                  ],
-                ),
-              ],
-            ),
-          if (label == '대장내시경')
-            Padding(
-              padding: EdgeInsets.only(top: 8),
-              child: Text(
-                '* (용종절제술 무 / 용종절제술 유)',
-                style: TextStyle(
-                  fontSize: 12,
-                  fontStyle: FontStyle.italic,
-                  color: Colors.grey[600],
-                ),
-              ),
-            ),
-        ],
-      ),
+    showResultsDialogWithCurrentDoctors(
+      context: context,
+      patients: patients,
+      startDate: startDate!,
+      endDate: endDate!,
+      selectedDoctor: selectedDoctor,
+      doctors: doctors,
+      onClose: () {
+        setState(() {
+          // Trigger rebuild of parent widget
+        });
+      },
     );
   }
 
