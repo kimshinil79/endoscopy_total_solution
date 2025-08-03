@@ -26,17 +26,39 @@ class DoctorStatisticsExcelGenerator {
         listen: false,
       );
       final Map<String, String> doctorMap = settingsProvider.doctorMap;
+      final List<String> allDoctors = settingsProvider.doctors;
 
-      // 임상/검진 의사 분류
+      // 임상/검진/가정의학과 의사 분류
       List<String> clinicalDoctors = [];
       List<String> screeningDoctors = [];
-      doctorMap.forEach((doctor, type) {
-        if (type == '임상') {
-          clinicalDoctors.add(doctor);
-        } else if (type == '검진') {
-          screeningDoctors.add(doctor);
+      List<String> familyMedicineDoctors = ['이시현', '김다빈']; // 가정의학과 의사들
+
+      // doctorMap이 비어있지 않으면 사용
+      if (doctorMap.isNotEmpty) {
+        doctorMap.forEach((doctor, type) {
+          if (familyMedicineDoctors.contains(doctor)) {
+            // 이시현, 김다빈은 무조건 가정의학과로 분류 (이미 familyMedicineDoctors에 있음)
+            return;
+          } else if (type == '임상') {
+            clinicalDoctors.add(doctor);
+          } else if (type == '검진') {
+            screeningDoctors.add(doctor);
+          }
+        });
+      } else {
+        // doctorMap이 비어있으면 allDoctors 리스트에서 '의사'를 제외한 모든 의사를 분류
+        List<String> doctorNames =
+            allDoctors.where((doctor) => doctor != '의사').toList();
+        for (String doctor in doctorNames) {
+          if (familyMedicineDoctors.contains(doctor)) {
+            // 이시현, 김다빈은 가정의학과로 분류 (이미 familyMedicineDoctors에 있음)
+            continue;
+          } else {
+            clinicalDoctors.add(doctor);
+          }
         }
-      });
+        screeningDoctors = []; // 분류 정보가 없으므로 비워둠
+      }
 
       final xls.Workbook workbook = xls.Workbook();
       final xls.Worksheet sheet = workbook.worksheets[0];
@@ -99,13 +121,64 @@ class DoctorStatisticsExcelGenerator {
 
       sheet.getRangeByName('A2:M4').cellStyle = headerStyle;
 
-      // 의사 목록 구성
-      List<String> doctors = [
-        ...clinicalDoctors,
-        '소화기내과 합계',
-        ...screeningDoctors,
-        '총합계',
-      ];
+      // 먼저 환자 데이터 조회
+      List<Patient> patients = await queryPatientsByDate(
+        startOfMonth,
+        endOfMonth,
+      );
+
+      // 검사 수가 0이 아닌 의사들만 필터링
+      List<String> activeClinicalDoctors =
+          clinicalDoctors.where((doctor) {
+            return patients.any(
+              (p) =>
+                  p.doctor == doctor &&
+                  (p.GSF != null || p.CSF != null || p.sig != null),
+            );
+          }).toList();
+
+      List<String> activeFamilyMedicineDoctors =
+          familyMedicineDoctors.where((doctor) {
+            return patients.any(
+              (p) =>
+                  p.doctor == doctor &&
+                  (p.GSF != null || p.CSF != null || p.sig != null),
+            );
+          }).toList();
+
+      List<String> activeScreeningDoctors =
+          screeningDoctors.where((doctor) {
+            return patients.any(
+              (p) =>
+                  p.doctor == doctor &&
+                  (p.GSF != null || p.CSF != null || p.sig != null),
+            );
+          }).toList();
+
+      // 의사 목록 구성 (검사 수가 0이 아닌 의사들만)
+      List<String> doctors = [];
+
+      // 소화기내과 의사들 추가
+      if (activeClinicalDoctors.isNotEmpty) {
+        doctors.addAll(activeClinicalDoctors);
+        doctors.add('소화기내과 합계');
+      }
+
+      // 가정의학과 의사들 추가
+      if (activeFamilyMedicineDoctors.isNotEmpty) {
+        doctors.addAll(activeFamilyMedicineDoctors);
+        doctors.add('가정의학과 합계');
+      }
+
+      // 검진 의사들 추가
+      if (activeScreeningDoctors.isNotEmpty) {
+        doctors.addAll(activeScreeningDoctors);
+      }
+
+      // 총합계는 항상 추가
+      if (doctors.isNotEmpty) {
+        doctors.add('총합계');
+      }
 
       for (int i = 0; i < doctors.length; i++) {
         sheet.getRangeByIndex(i + 5, 1).setText(doctors[i]);
@@ -114,11 +187,6 @@ class DoctorStatisticsExcelGenerator {
           sheet.getRangeByIndex(i + 5, 1).cellStyle.bold = true;
         }
       }
-
-      List<Patient> patients = await queryPatientsByDate(
-        startOfMonth,
-        endOfMonth,
-      );
 
       Map<String, List<int>> doctorTotals = {};
       Map<String, List<int>> doctorPolypCounts = {};
@@ -134,7 +202,12 @@ class DoctorStatisticsExcelGenerator {
         if (doctor == '소화기내과 합계') {
           doctorPatients =
               patients
-                  .where((p) => clinicalDoctors.contains(p.doctor))
+                  .where((p) => activeClinicalDoctors.contains(p.doctor))
+                  .toList();
+        } else if (doctor == '가정의학과 합계') {
+          doctorPatients =
+              patients
+                  .where((p) => activeFamilyMedicineDoctors.contains(p.doctor))
                   .toList();
         } else if (doctor == '총합계') {
           doctorPatients = patients;
@@ -175,30 +248,71 @@ class DoctorStatisticsExcelGenerator {
 
       // 소화기내과 합계 계산
       int gastroIndex = doctors.indexOf('소화기내과 합계');
+      if (gastroIndex != -1) {
+        for (int j = 2; j <= 13; j++) {
+          int sum = 0;
+          int polypSum = 0;
+          for (String doctor in activeClinicalDoctors) {
+            sum += doctorTotals[doctor]![j - 2];
+            if (j >= 7 && j <= 10) {
+              polypSum += doctorPolypCounts[doctor]![j - 2];
+            }
+          }
+          if (j >= 7 && j <= 10) {
+            sheet
+                .getRangeByIndex(gastroIndex + 5, j)
+                .setText('$sum ($polypSum)');
+            doctorPolypCounts['소화기내과 합계']![j - 2] = polypSum;
+          } else {
+            sheet.getRangeByIndex(gastroIndex + 5, j).setValue(sum);
+          }
+          doctorTotals['소화기내과 합계']![j - 2] = sum;
+        }
+      }
+
+      // 가정의학과 합계 계산
+      int familyMedicineIndex = doctors.indexOf('가정의학과 합계');
+      if (familyMedicineIndex != -1) {
+        for (int j = 2; j <= 13; j++) {
+          int sum = 0;
+          int polypSum = 0;
+          for (String doctor in activeFamilyMedicineDoctors) {
+            sum += doctorTotals[doctor]![j - 2];
+            if (j >= 7 && j <= 10) {
+              polypSum += doctorPolypCounts[doctor]![j - 2];
+            }
+          }
+          if (j >= 7 && j <= 10) {
+            sheet
+                .getRangeByIndex(familyMedicineIndex + 5, j)
+                .setText('$sum ($polypSum)');
+            doctorPolypCounts['가정의학과 합계']![j - 2] = polypSum;
+          } else {
+            sheet.getRangeByIndex(familyMedicineIndex + 5, j).setValue(sum);
+          }
+          doctorTotals['가정의학과 합계']![j - 2] = sum;
+        }
+      }
+
+      // 총합계 계산 (소화기내과 합계 + 가정의학과 합계 + 검진 의사)
+      int totalIndex = doctors.indexOf('총합계');
       for (int j = 2; j <= 13; j++) {
         int sum = 0;
         int polypSum = 0;
-        for (String doctor in clinicalDoctors) {
-          sum += doctorTotals[doctor]![j - 2];
-          if (j >= 7 && j <= 10) {
-            polypSum += doctorPolypCounts[doctor]![j - 2];
-          }
-        }
-        if (j >= 7 && j <= 10) {
-          sheet.getRangeByIndex(gastroIndex + 5, j).setText('$sum ($polypSum)');
-          doctorPolypCounts['소화기내과 합계']![j - 2] = polypSum;
-        } else {
-          sheet.getRangeByIndex(gastroIndex + 5, j).setValue(sum);
-        }
-        doctorTotals['소화기내과 합계']![j - 2] = sum;
-      }
 
-      // 총합계 계산 (소화기내과 합계 + 검진 의사)
-      int totalIndex = doctors.indexOf('총합계');
-      for (int j = 2; j <= 13; j++) {
-        int sum = doctorTotals['소화기내과 합계']![j - 2];
-        int polypSum = 0;
-        for (String doctor in screeningDoctors) {
+        // 소화기내과 합계가 있으면 더하기
+        if (doctorTotals.containsKey('소화기내과 합계')) {
+          sum += doctorTotals['소화기내과 합계']![j - 2];
+          polypSum += doctorPolypCounts['소화기내과 합계']![j - 2];
+        }
+
+        // 가정의학과 합계가 있으면 더하기
+        if (doctorTotals.containsKey('가정의학과 합계')) {
+          sum += doctorTotals['가정의학과 합계']![j - 2];
+          polypSum += doctorPolypCounts['가정의학과 합계']![j - 2];
+        }
+
+        for (String doctor in activeScreeningDoctors) {
           sum += doctorTotals[doctor]![j - 2];
           if (j >= 7 && j <= 10) {
             polypSum += doctorPolypCounts[doctor]![j - 2];
@@ -220,10 +334,20 @@ class DoctorStatisticsExcelGenerator {
       highlightStyle.vAlign = xls.VAlignType.center;
 
       // 소화기내과 합계 행
-      sheet.getRangeByIndex(gastroIndex + 5, 12).cellStyle =
-          highlightStyle; // 합계
-      sheet.getRangeByIndex(gastroIndex + 5, 13).cellStyle =
-          highlightStyle; // 검진 합계
+      if (gastroIndex != -1) {
+        sheet.getRangeByIndex(gastroIndex + 5, 12).cellStyle =
+            highlightStyle; // 합계
+        sheet.getRangeByIndex(gastroIndex + 5, 13).cellStyle =
+            highlightStyle; // 검진 합계
+      }
+
+      // 가정의학과 합계 행
+      if (familyMedicineIndex != -1) {
+        sheet.getRangeByIndex(familyMedicineIndex + 5, 12).cellStyle =
+            highlightStyle; // 합계
+        sheet.getRangeByIndex(familyMedicineIndex + 5, 13).cellStyle =
+            highlightStyle; // 검진 합계
+      }
 
       // 총합계 행
       sheet.getRangeByIndex(totalIndex + 5, 12).cellStyle =
